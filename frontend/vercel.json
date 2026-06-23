@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_MARKET_CONTRACT_ADDRESS": "@truthmarket_market_address",
+    "NEXT_PUBLIC_REGISTRY_CONTRACT_ADDRESS": "@truthmarket_registry_address",
+    "NEXT_PUBLIC_DISPUTE_RESOLVER_ADDRESS": "@truthmarket_resolver_address",
+    "NEXT_PUBLIC_GENLAYER_RPC_URL": "@truthmarket_rpc_url",
+    "NEXT_PUBLIC_CHAIN_ID": "61999"
+  }
+}
