@@ -35,21 +35,34 @@ class Contract(gl.Contract):
     yes_pool: TreeMap[u256, u256]                # tổng tiền đặt YES (wei)
     no_pool: TreeMap[u256, u256]                 # tổng tiền đặt NO (wei)
 
-    # --- Storage: Stake của từng user ---
-    # key = f"{market_id}:{address}"
+    # --- Storage: Stake của từng user (key = "{market_id}:{address}") ---
     user_yes_stake: TreeMap[str, u256]
     user_no_stake: TreeMap[str, u256]
 
-    # --- Storage: Chống double-claim ---
-    # key = f"{market_id}:{address}"
+    # --- Storage: Chống double-claim (key = "{market_id}:{address}") ---
     claimed: TreeMap[str, bool]
 
     # --- Storage: Metadata ---
     market_count: u256
-    registry_address: str                        # địa chỉ MarketRegistry (tùy chọn)
+    registry_address: str
 
     def __init__(self, registry_addr: str = ""):
-        self.market_count = 0
+        # Khởi tạo đúng theo pattern PatternTest.py chính thức:
+        # TreeMap phải được gán trong __init__, u256 scalar dùng u256(0)
+        self.markets_question = TreeMap()
+        self.markets_sources = TreeMap()
+        self.markets_deadline = TreeMap()
+        self.markets_creator = TreeMap()
+        self.markets_resolved = TreeMap()
+        self.markets_outcome = TreeMap()
+        self.markets_reasoning = TreeMap()
+        self.markets_resolved_at = TreeMap()
+        self.yes_pool = TreeMap()
+        self.no_pool = TreeMap()
+        self.user_yes_stake = TreeMap()
+        self.user_no_stake = TreeMap()
+        self.claimed = TreeMap()
+        self.market_count = u256(0)
         self.registry_address = registry_addr
 
     # =========================================================
@@ -67,9 +80,9 @@ class Contract(gl.Contract):
         Tạo một market mới.
 
         Args:
-            question: Câu hỏi định tính (vd: "Liệu phim X có được giới phê bình gọi là kiệt tác?")
-            sources_json: JSON-encoded list các URL nguồn tin (vd: '["https://...", "https://..."]')
-            deadline_timestamp: Unix timestamp khi market đóng và có thể resolve
+            question: Câu hỏi định tính
+            sources_json: JSON-encoded list các URL nguồn tin
+            deadline_timestamp: Unix timestamp khi market đóng
 
         Returns:
             market_id của market vừa tạo
@@ -99,11 +112,11 @@ class Contract(gl.Contract):
         self.markets_resolved[market_id] = False
         self.markets_outcome[market_id] = "UNRESOLVED"
         self.markets_reasoning[market_id] = ""
-        self.markets_resolved_at[market_id] = 0
-        self.yes_pool[market_id] = 0
-        self.no_pool[market_id] = 0
+        self.markets_resolved_at[market_id] = u256(0)
+        self.yes_pool[market_id] = u256(0)
+        self.no_pool[market_id] = u256(0)
 
-        self.market_count = self.market_count + 1
+        self.market_count = u256(int(self.market_count) + 1)
 
         return market_id
 
@@ -120,20 +133,16 @@ class Contract(gl.Contract):
             market_id: ID của market
             side: True = đặt YES, False = đặt NO
         """
-        # Validate value
         if gl.message.value == 0:
             raise gl.UserError("STAKE_MUST_BE_NONZERO")
 
-        # Validate market tồn tại
         if int(market_id) >= int(self.market_count):
             raise gl.UserError("MARKET_NOT_FOUND")
 
-        # Validate market chưa resolved
         if self.markets_resolved[market_id]:
             raise gl.UserError("MARKET_ALREADY_RESOLVED")
 
-        # Validate chưa qua deadline
-        if gl.block.timestamp >= self.markets_deadline[market_id]:
+        if int(gl.block.timestamp) >= int(self.markets_deadline[market_id]):
             raise gl.UserError("MARKET_DEADLINE_PASSED")
 
         sender = str(gl.message.sender_account)
@@ -141,10 +150,12 @@ class Contract(gl.Contract):
         stake_key = f"{int(market_id)}:{sender}"
 
         if side:  # đặt YES
-            self.user_yes_stake[stake_key] = u256(int(self.user_yes_stake.get(stake_key, u256(0))) + int(amount))
+            prev_yes = int(self.user_yes_stake.get(stake_key, u256(0)))
+            self.user_yes_stake[stake_key] = u256(prev_yes + int(amount))
             self.yes_pool[market_id] = u256(int(self.yes_pool[market_id]) + int(amount))
         else:     # đặt NO
-            self.user_no_stake[stake_key] = u256(int(self.user_no_stake.get(stake_key, u256(0))) + int(amount))
+            prev_no = int(self.user_no_stake.get(stake_key, u256(0)))
+            self.user_no_stake[stake_key] = u256(prev_no + int(amount))
             self.no_pool[market_id] = u256(int(self.no_pool[market_id]) + int(amount))
 
     # =========================================================
@@ -163,7 +174,6 @@ class Contract(gl.Contract):
         4. Dùng gl.eq_principle.prompt_comparative() đạt đồng thuận validator
         5. Ghi kết quả verdict + reasoning vào state
         """
-        # --- Validate ---
         if int(market_id) >= int(self.market_count):
             raise gl.UserError("MARKET_NOT_FOUND")
 
@@ -188,19 +198,15 @@ class Contract(gl.Contract):
 
             for url in sources:
                 try:
-                    # Đọc nội dung trang web thật
                     page_text = gl.nondet.web.render(url, mode="text")
                     if page_text and len(page_text.strip()) > 50:
-                        # Cắt giới hạn mỗi nguồn để tránh vượt context LLM
                         evidence_chunks.append(
                             f"SOURCE ({url}):\n{page_text[:2500]}"
                         )
                 except Exception:
-                    # Bỏ qua nguồn lỗi, không crash toàn bộ resolution
                     failed_sources.append(url)
                     continue
 
-            # Cần tối thiểu 2 nguồn đọc được
             if len(evidence_chunks) < 2:
                 raise gl.UserError("INSUFFICIENT_EVIDENCE")
 
@@ -229,8 +235,7 @@ Respond ONLY with valid JSON, no other text:
             raw = gl.nondet.exec_prompt(prompt, response_format="json")
             return json.dumps(raw, sort_keys=True)
 
-        # --- Đồng thuận validator: so sánh Ý NGHĨA verdict, không phải chuỗi ký tự ---
-        # KHÔNG dùng strict_eq vì reasoning text sẽ khác nhau giữa các validator
+        # --- Đồng thuận validator ---
         result_str = gl.eq_principle.prompt_comparative(
             leader_fn,
             principle=(
@@ -260,7 +265,7 @@ Respond ONLY with valid JSON, no other text:
         self.markets_outcome[market_id] = verdict
         self.markets_reasoning[market_id] = reasoning
         self.markets_resolved[market_id] = True
-        self.markets_resolved_at[market_id] = int(gl.block.timestamp)
+        self.markets_resolved_at[market_id] = u256(int(gl.block.timestamp))
 
     # =========================================================
     #  OVERRIDE OUTCOME (chỉ DisputeResolver được gọi)
@@ -274,17 +279,13 @@ Respond ONLY with valid JSON, no other text:
         new_reasoning: str,
         dispute_resolver: str,
     ) -> None:
-        """
-        Ghi đè kết quả từ DisputeResolver sau khi appeal thắng.
-        Chỉ địa chỉ dispute_resolver hợp lệ mới được gọi.
-        """
+        """Ghi đè kết quả từ DisputeResolver sau khi appeal thắng."""
         if int(market_id) >= int(self.market_count):
             raise gl.UserError("MARKET_NOT_FOUND")
 
         if new_outcome not in ("YES", "NO"):
             raise gl.UserError("INVALID_OUTCOME")
 
-        # TODO: trong production, cần validate caller là dispute_resolver đã đăng ký
         self.markets_outcome[market_id] = new_outcome
         self.markets_reasoning[market_id] = f"[APPEAL OVERRIDE] {new_reasoning}"
 
@@ -294,13 +295,7 @@ Respond ONLY with valid JSON, no other text:
 
     @gl.public.write
     def claim_payout(self, market_id: u256) -> None:
-        """
-        Nhận phần thưởng sau khi market đã resolved.
-
-        Tính toán:
-        - Người thắng chia sẻ toàn bộ pool (yes_pool + no_pool) theo tỷ lệ stake
-        - Nếu pool đối ứng = 0 (không ai đặt phía thua) → hoàn 100% stake
-        """
+        """Nhận phần thưởng sau khi market đã resolved."""
         if int(market_id) >= int(self.market_count):
             raise gl.UserError("MARKET_NOT_FOUND")
 
@@ -311,7 +306,6 @@ Respond ONLY with valid JSON, no other text:
         claim_key = f"{int(market_id)}:{sender}"
         stake_key = f"{int(market_id)}:{sender}"
 
-        # Chống double-claim: set TRƯỚC khi transfer (chống reentrancy)
         if self.claimed.get(claim_key, False):
             raise gl.UserError("ALREADY_CLAIMED")
 
@@ -329,16 +323,13 @@ Respond ONLY with valid JSON, no other text:
             if user_yes == 0:
                 raise gl.UserError("NO_WINNING_STAKE")
             if no_total == 0:
-                # Không có ai đặt NO → hoàn 100% stake YES
                 payout = user_yes
             else:
-                # Tỷ lệ: stake_user / yes_pool * total_pool
                 payout = (user_yes * total_pool) // yes_total
         elif verdict == "NO":
             if user_no == 0:
                 raise gl.UserError("NO_WINNING_STAKE")
             if yes_total == 0:
-                # Không có ai đặt YES → hoàn 100% stake NO
                 payout = user_no
             else:
                 payout = (user_no * total_pool) // no_total
@@ -348,10 +339,7 @@ Respond ONLY with valid JSON, no other text:
         if payout == 0:
             raise gl.UserError("ZERO_PAYOUT")
 
-        # Đánh dấu đã claim TRƯỚC khi transfer
         self.claimed[claim_key] = True
-
-        # Transfer phần thưởng
         gl.message.sender_account.transfer(payout)
 
     # =========================================================
@@ -360,10 +348,7 @@ Respond ONLY with valid JSON, no other text:
 
     @gl.public.view
     def get_market(self, market_id: u256) -> str:
-        """
-        Trả về toàn bộ thông tin của một market (JSON-encoded string).
-        Frontend dùng để đọc state.
-        """
+        """Trả về toàn bộ thông tin của một market (JSON-encoded string)."""
         if int(market_id) >= int(self.market_count):
             raise gl.UserError("MARKET_NOT_FOUND")
 
@@ -371,7 +356,6 @@ Respond ONLY with valid JSON, no other text:
         no_total = int(self.no_pool[market_id])
         total = yes_total + no_total
 
-        # Tính odds (tỷ lệ %) — tránh chia 0
         if total > 0:
             yes_pct = (yes_total * 100) // total
             no_pct = 100 - yes_pct
@@ -419,7 +403,7 @@ Respond ONLY with valid JSON, no other text:
     def get_all_markets_summary(self) -> str:
         """
         Trả về danh sách tóm tắt tất cả market (cho trang danh sách).
-        Giới hạn tối đa 50 market gần nhất để tránh gas overflow.
+        Giới hạn tối đa 50 market gần nhất.
         """
         count = int(self.market_count)
         start = max(0, count - 50)
