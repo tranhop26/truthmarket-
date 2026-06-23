@@ -33,13 +33,10 @@ function readContract(filename) {
   const code = readFileSync(path, 'utf8');
   console.log(`\n[READ] ${filename} — ${code.length} bytes`);
 
-  // Pre-deploy checklist
+  // Checklist: chỉ dùng directive chính thức theo docs.genlayer.com
   const lines = code.split('\n');
-  if (!lines[0].trim().startsWith('# v0.2.16')) {
-    throw new Error('CHECKLIST FAIL: Dòng 1 phải là # v0.2.16');
-  }
-  if (!lines[1].includes('Depends')) {
-    throw new Error('CHECKLIST FAIL: Dòng 2 phải chứa # { "Depends": ... }');
+  if (!lines[0].includes('Depends')) {
+    throw new Error('CHECKLIST FAIL: Dòng 1 phải là # { "Depends": "py-genlayer:..." }');
   }
   // NOTE: self.x = TreeMap() trong __init__ là ĐÚNG theo PatternTest.py chính thức
   // Rule cũ sai đã bị xóa
@@ -53,19 +50,32 @@ function readContract(filename) {
   return code;
 }
 
-// Helper: deploy một contract và chờ kết quả
+// Helper: deploy một contract, chờ finalization, trả về EVM address
 async function deployContract(name, code, args = []) {
   console.log(`\n📦 Deploying ${name}...`);
   console.log(`   Args: ${JSON.stringify(args)}`);
 
   try {
-    const address = await client.deployContract({
-      code,
-      args,
-    });
+    const txHash = await client.deployContract({ code, args });
+    console.log(`  TX Hash: ${txHash}`);
 
-    console.log(`  ✅ ${name} deployed at: ${address}`);
-    return address;
+    // Chờ finalization để lấy EVM address
+    process.stdout.write('  Waiting for finalization...');
+    let evmAddress = null;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const tx = await client.getTransaction({ hash: txHash });
+      if (tx.statusName === 'FINALIZED') {
+        evmAddress = tx.contract_snapshot?.contract_address;
+        process.stdout.write(` DONE\n`);
+        break;
+      }
+      process.stdout.write('.');
+    }
+    if (!evmAddress) throw new Error(`Finalization timeout for ${name}`);
+
+    console.log(`  ✅ ${name} deployed at EVM: ${evmAddress}`);
+    return { txHash, evmAddress };
   } catch (err) {
     console.error(`  ❌ Deploy FAILED: ${err.message}`);
     throw err;
@@ -76,25 +86,29 @@ async function deployContract(name, code, args = []) {
 async function main() {
   const addresses = {};
 
-  // ── STEP 1: Deploy market.py ──
+  // ── STEP 1: Deploy market.py — must finalize first to get EVM address
   const marketCode = readContract('market.py');
-  addresses.market = await deployContract('Market', marketCode, [
-    '',  // registry_addr rỗng
-  ]);
+  const market = await deployContract('Market', marketCode, ['']);
+  addresses.market_tx   = market.txHash;
+  addresses.market      = market.evmAddress;
 
-  // ── STEP 2: Deploy market_registry.py ──
+  // ── STEP 2: Deploy market_registry.py — pass EVM address (not tx hash)
   const registryCode = readContract('market_registry.py');
-  addresses.registry = await deployContract('MarketRegistry', registryCode, [
-    addresses.market,  // cần địa chỉ market
+  const registry = await deployContract('MarketRegistry', registryCode, [
+    addresses.market,   // EVM address of market contract
   ]);
+  addresses.registry_tx = registry.txHash;
+  addresses.registry    = registry.evmAddress;
 
-  // ── STEP 3: Deploy dispute_resolver.py ──
+  // ── STEP 3: Deploy dispute_resolver.py — pass EVM address (not tx hash)
   const resolverCode = readContract('dispute_resolver.py');
-  addresses.resolver = await deployContract('DisputeResolver', resolverCode, [
-    addresses.market,   // cần địa chỉ market
+  const resolver = await deployContract('DisputeResolver', resolverCode, [
+    addresses.market,   // EVM address of market contract
     2,                  // dispute_window_hours = 2
     100000,             // min_bond_amount = 100,000 wei
   ]);
+  addresses.resolver_tx = resolver.txHash;
+  addresses.resolver    = resolver.evmAddress;
 
   // ── Lưu kết quả ──
   const output = {
