@@ -392,8 +392,8 @@ export function useRaiseDispute() {
         functionName: 'raise_dispute',
         args: [
           BigInt(params.marketId),
+          params.originalOutcome,               // market_id, original_outcome, extra_sources_json
           JSON.stringify(params.extraSources),
-          params.originalOutcome,
         ],
         value: params.bondAmount,
       });
