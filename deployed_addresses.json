@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-06-23T08:26:51.403Z",
+  "account": "0xe0366890ACf8Bd266a2cA7ad60eCbc35e8270530",
+  "network": "studionet",
+  "rpc": "https://studio.genlayer.com/api",
+  "contracts": {
+    "market": "0x47a6eff114e61f05c7ba223118a2875991698ca9f5acc2db02f7950170b324cc",
+    "market_registry": "0x7832b869fe21776f4b0f2c37ad7508e5d3a6a2cb61a57e29943c1a10f76e3181",
+    "dispute_resolver": "0xd7228ce3da2056cb933372361c9feeaaafeee457c1217f476fa31290935fa751"
+  }
+}
