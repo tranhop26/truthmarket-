@@ -71,7 +71,7 @@ class Contract(gl.Contract):
             raise gl.UserError("MARKET_CONTRACT_NOT_SET")
 
         # Validate cơ bản trước khi gọi cross-contract
-        if deadline_timestamp <= gl.block.timestamp:
+        if int(deadline_timestamp) <= int(gl.block.timestamp):
             raise gl.UserError("DEADLINE_MUST_BE_FUTURE")
 
         try:
@@ -90,7 +90,7 @@ class Contract(gl.Contract):
         self.registry_question[reg_id] = question
         self.registry_creator[reg_id] = str(gl.message.sender_account)
         self.registry_deadline[reg_id] = deadline_timestamp
-        self.registry_created_at[reg_id] = gl.block.timestamp
+        self.registry_created_at[reg_id] = u256(int(gl.block.timestamp))
 
         self.registry_count = u256(int(self.registry_count) + 1)
 

@@ -75,8 +75,8 @@ class Contract(gl.Contract):
         Returns:
             market_id của market vừa tạo
         """
-        # Validate deadline
-        if deadline_timestamp <= gl.block.timestamp:
+        # Validate deadline — cast cả 2 về int để tránh TypeError (u256 vs int)
+        if int(deadline_timestamp) <= int(gl.block.timestamp):
             raise gl.UserError("DEADLINE_MUST_BE_FUTURE")
 
         # Validate sources
@@ -171,7 +171,7 @@ class Contract(gl.Contract):
         if self.markets_resolved[market_id]:
             raise gl.UserError("ALREADY_RESOLVED")
 
-        if gl.block.timestamp < self.markets_deadline[market_id]:
+        if int(gl.block.timestamp) < int(self.markets_deadline[market_id]):
             raise gl.UserError("DEADLINE_NOT_REACHED")
 
         question = self.markets_question[market_id]
@@ -261,7 +261,7 @@ Respond ONLY with valid JSON, no other text:
         self.markets_outcome[market_id] = verdict
         self.markets_reasoning[market_id] = reasoning
         self.markets_resolved[market_id] = True
-        self.markets_resolved_at[market_id] = gl.block.timestamp
+        self.markets_resolved_at[market_id] = u256(int(gl.block.timestamp))
 
     # =========================================================
     #  OVERRIDE OUTCOME (chỉ DisputeResolver được gọi)

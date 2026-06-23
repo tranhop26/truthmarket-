@@ -94,7 +94,7 @@ class Contract(gl.Contract):
         self.dispute_initiator[market_id] = str(gl.message.sender_account)
         self.dispute_bond[market_id] = gl.message.value
         self.dispute_extra_sources[market_id] = extra_sources_json
-        self.dispute_raised_at[market_id] = gl.block.timestamp
+        self.dispute_raised_at[market_id] = u256(int(gl.block.timestamp))
         self.dispute_resolved[market_id] = False
         self.dispute_original_outcome[market_id] = original_outcome
 
