@@ -1,44 +1,35 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 """
-TruthMarket — Market Contract v6 (FINAL)
+TruthMarket — Market Contract v8
 
-Root-cause fixes (verified by bisection):
-1. u256 scalar field writes don't persist → replaced with TreeMap[str,str] counter
-2. bool as TreeMap value type crashes __init__ → replaced with str "true"/"false"
-3. All TreeMap keys are str (not u256) → avoids u256-key indexing issues
-
-Only safe types used:
-- TreeMap[str, str]  ← verified working by bisect_02
-- str scalar fields  ← verified working by baseline
+Bisection-confirmed safe patterns:
+1. TreeMap[str, str] only — no bool/u256 values
+2. Counters via state TreeMap — no u256 scalar fields
+3. gl.message.sender_address — not sender_account
+4. No json.loads/isinstance/strip in write functions — not supported in GenVM
+5. raise Exception("...") — not gl.UserError
 """
 import json
 from genlayer import *
 
 
 class Contract(gl.Contract):
-    # Market core data — str key, str value (safe types only)
     markets_question:    TreeMap[str, str]
-    markets_sources:     TreeMap[str, str]   # JSON-encoded list[str]
-    markets_deadline:    TreeMap[str, str]   # str(int unix timestamp)
+    markets_sources:     TreeMap[str, str]
+    markets_deadline:    TreeMap[str, str]
     markets_creator:     TreeMap[str, str]
     markets_resolved:    TreeMap[str, str]   # "true" / "false"
     markets_outcome:     TreeMap[str, str]   # "YES" / "NO" / "UNRESOLVED"
     markets_reasoning:   TreeMap[str, str]
-    markets_resolved_at: TreeMap[str, str]   # str(int unix timestamp)
+    markets_resolved_at: TreeMap[str, str]
 
-    # Pools — stored as str(int wei)
-    yes_pool: TreeMap[str, str]
-    no_pool:  TreeMap[str, str]
-
-    # User stakes — key = "{market_id}:{address}", value = str(int wei)
+    yes_pool:       TreeMap[str, str]
+    no_pool:        TreeMap[str, str]
     user_yes_stake: TreeMap[str, str]
     user_no_stake:  TreeMap[str, str]
+    claimed:        TreeMap[str, str]
 
-    # Double-claim guard — "true" / "false"
-    claimed: TreeMap[str, str]
-
-    # Counter + config stored as str in TreeMap (u256 scalar doesn't persist)
-    state: TreeMap[str, str]   # state["market_count"], state["registry_address"]
+    state: TreeMap[str, str]   # count, registry_address
 
     def __init__(self, registry_addr: str = ""):
         self.markets_question    = TreeMap()
@@ -55,10 +46,9 @@ class Contract(gl.Contract):
         self.user_no_stake       = TreeMap()
         self.claimed             = TreeMap()
         self.state               = TreeMap()
-        self.state["market_count"]    = "0"
+        self.state["market_count"]     = "0"
         self.state["registry_address"] = registry_addr
 
-    # ── helpers ────────────────────────────────────────────────────────────
     def _count(self) -> int:
         return int(self.state.get("market_count", "0"))
 
@@ -74,17 +64,13 @@ class Contract(gl.Contract):
         sources_json: str,
         deadline_timestamp: u256,
     ) -> u256:
+        # Simple validation — no json.loads/isinstance (not GenVM-safe)
         if int(deadline_timestamp) <= int(gl.block.timestamp):
-            raise gl.UserError("DEADLINE_MUST_BE_FUTURE")
-
-        try:
-            sources = json.loads(sources_json)
-        except Exception:
-            raise gl.UserError("INVALID_SOURCES_JSON")
-        if not isinstance(sources, list) or len(sources) < 2:
-            raise gl.UserError("NEED_AT_LEAST_2_SOURCES")
-        if len(question.strip()) < 10:
-            raise gl.UserError("QUESTION_TOO_SHORT")
+            raise Exception("DEADLINE_MUST_BE_FUTURE")
+        if len(question) < 10:
+            raise Exception("QUESTION_TOO_SHORT")
+        if len(sources_json) < 10:
+            raise Exception("SOURCES_REQUIRED")
 
         mid = str(self._count())
         self.markets_question[mid]    = question
@@ -105,17 +91,17 @@ class Contract(gl.Contract):
     @gl.public.write.payable
     def place_stake(self, market_id: u256, side: bool) -> None:
         if gl.message.value == 0:
-            raise gl.UserError("STAKE_MUST_BE_NONZERO")
+            raise Exception("STAKE_MUST_BE_NONZERO")
         mid = str(int(market_id))
         if int(market_id) >= self._count():
-            raise gl.UserError("MARKET_NOT_FOUND")
+            raise Exception("MARKET_NOT_FOUND")
         if self.markets_resolved.get(mid, "false") == "true":
-            raise gl.UserError("MARKET_ALREADY_RESOLVED")
+            raise Exception("MARKET_ALREADY_RESOLVED")
         if int(gl.block.timestamp) >= int(self.markets_deadline.get(mid, "0")):
-            raise gl.UserError("MARKET_DEADLINE_PASSED")
+            raise Exception("MARKET_DEADLINE_PASSED")
 
-        sender = str(gl.message.sender_address)
-        amount = int(gl.message.value)
+        sender    = str(gl.message.sender_address)
+        amount    = int(gl.message.value)
         stake_key = f"{mid}:{sender}"
 
         if side:
@@ -133,30 +119,27 @@ class Contract(gl.Contract):
     def resolve_market(self, market_id: u256) -> None:
         mid = str(int(market_id))
         if int(market_id) >= self._count():
-            raise gl.UserError("MARKET_NOT_FOUND")
+            raise Exception("MARKET_NOT_FOUND")
         if self.markets_resolved.get(mid, "false") == "true":
-            raise gl.UserError("ALREADY_RESOLVED")
+            raise Exception("ALREADY_RESOLVED")
         if int(gl.block.timestamp) < int(self.markets_deadline.get(mid, "0")):
-            raise gl.UserError("DEADLINE_NOT_REACHED")
+            raise Exception("DEADLINE_NOT_REACHED")
 
-        question    = self.markets_question[mid]
+        question     = self.markets_question[mid]
         sources_json = self.markets_sources[mid]
-        try:
-            sources = json.loads(sources_json)
-        except Exception:
-            raise gl.UserError("SOURCES_PARSE_FAILED")
-
+        # json.loads inside nondet context (leader_fn) is safe
         def leader_fn():
+            sources = json.loads(sources_json)
             evidence_chunks = []
             for url in sources:
                 try:
                     page_text = gl.nondet.web.render(url, mode="text")
-                    if page_text and len(page_text.strip()) > 50:
+                    if page_text and len(page_text) > 50:
                         evidence_chunks.append(f"SOURCE ({url}):\n{page_text[:2500]}")
                 except Exception:
                     continue
             if len(evidence_chunks) < 2:
-                raise gl.UserError("INSUFFICIENT_EVIDENCE")
+                raise Exception("INSUFFICIENT_EVIDENCE")
             combined = "\n\n---\n\n".join(evidence_chunks)
             prompt = f"""You are a neutral AI judge for a prediction market.
 Determine YES or NO for this question based ONLY on the evidence below.
@@ -178,13 +161,10 @@ Respond ONLY with valid JSON:
                 "(both YES or both NO). Differences in confidence or reasoning are acceptable."
             ),
         )
-        try:
-            result  = json.loads(result_str)
-            verdict = result["verdict"]
-        except Exception:
-            raise gl.UserError("LLM_RESPONSE_PARSE_FAILED")
+        result  = json.loads(result_str)
+        verdict = result.get("verdict", "")
         if verdict not in ("YES", "NO"):
-            raise gl.UserError("MALFORMED_VERDICT")
+            raise Exception("MALFORMED_VERDICT")
 
         self.markets_outcome[mid]     = verdict
         self.markets_reasoning[mid]   = result.get("reasoning", "")
@@ -199,7 +179,7 @@ Respond ONLY with valid JSON:
     ) -> None:
         mid = str(int(market_id))
         if new_outcome not in ("YES", "NO"):
-            raise gl.UserError("INVALID_OUTCOME")
+            raise Exception("INVALID_OUTCOME")
         self.markets_outcome[mid]   = new_outcome
         self.markets_reasoning[mid] = f"[APPEAL OVERRIDE] {new_reasoning}"
 
@@ -209,14 +189,14 @@ Respond ONLY with valid JSON:
     def claim_payout(self, market_id: u256) -> None:
         mid = str(int(market_id))
         if int(market_id) >= self._count():
-            raise gl.UserError("MARKET_NOT_FOUND")
+            raise Exception("MARKET_NOT_FOUND")
         if self.markets_resolved.get(mid, "false") != "true":
-            raise gl.UserError("MARKET_NOT_RESOLVED_YET")
+            raise Exception("MARKET_NOT_RESOLVED_YET")
 
         sender    = str(gl.message.sender_address)
         claim_key = f"{mid}:{sender}"
         if self.claimed.get(claim_key, "false") == "true":
-            raise gl.UserError("ALREADY_CLAIMED")
+            raise Exception("ALREADY_CLAIMED")
 
         verdict   = self.markets_outcome[mid]
         yes_total = int(self.yes_pool.get(mid, "0"))
@@ -228,17 +208,17 @@ Respond ONLY with valid JSON:
 
         if verdict == "YES":
             if user_yes == 0:
-                raise gl.UserError("NO_WINNING_STAKE")
+                raise Exception("NO_WINNING_STAKE")
             payout = user_yes if no_total == 0 else (user_yes * total) // yes_total
         elif verdict == "NO":
             if user_no == 0:
-                raise gl.UserError("NO_WINNING_STAKE")
+                raise Exception("NO_WINNING_STAKE")
             payout = user_no if yes_total == 0 else (user_no * total) // no_total
         else:
-            raise gl.UserError("MARKET_UNRESOLVED")
+            raise Exception("MARKET_UNRESOLVED")
 
         if payout == 0:
-            raise gl.UserError("ZERO_PAYOUT")
+            raise Exception("ZERO_PAYOUT")
 
         self.claimed[claim_key] = "true"
         gl.message.sender_address.transfer(payout)
@@ -253,15 +233,15 @@ Respond ONLY with valid JSON:
     def get_market(self, market_id: u256) -> str:
         mid = str(int(market_id))
         if int(market_id) >= self._count():
-            raise gl.UserError("MARKET_NOT_FOUND")
-        yes_t = int(self.yes_pool.get(mid, "0"))
-        no_t  = int(self.no_pool.get(mid, "0"))
-        total = yes_t + no_t
+            raise Exception("MARKET_NOT_FOUND")
+        yes_t   = int(self.yes_pool.get(mid, "0"))
+        no_t    = int(self.no_pool.get(mid, "0"))
+        total   = yes_t + no_t
         yes_pct = (yes_t * 100) // total if total > 0 else 50
         return json.dumps({
             "market_id":   int(market_id),
             "question":    self.markets_question.get(mid, ""),
-            "sources":     json.loads(self.markets_sources.get(mid, "[]")),
+            "sources":     self.markets_sources.get(mid, "[]"),
             "deadline":    int(self.markets_deadline.get(mid, "0")),
             "creator":     self.markets_creator.get(mid, ""),
             "resolved":    self.markets_resolved.get(mid, "false") == "true",
@@ -290,19 +270,18 @@ Respond ONLY with valid JSON:
         start = max(0, count - 50)
         markets = []
         for i in range(start, count):
-            mid   = str(i)
-            yes_t = int(self.yes_pool.get(mid, "0"))
-            no_t  = int(self.no_pool.get(mid, "0"))
-            total = yes_t + no_t
+            mid     = str(i)
+            yes_t   = int(self.yes_pool.get(mid, "0"))
+            no_t    = int(self.no_pool.get(mid, "0"))
+            total   = yes_t + no_t
             yes_pct = (yes_t * 100) // total if total > 0 else 50
             markets.append({
-                "market_id": i,
-                "question":  self.markets_question.get(mid, ""),
-                "deadline":  int(self.markets_deadline.get(mid, "0")),
-                "resolved":  self.markets_resolved.get(mid, "false") == "true",
-                "outcome":   self.markets_outcome.get(mid, "UNRESOLVED"),
-                "yes_pct":   yes_pct,
+                "market_id":  i,
+                "question":   self.markets_question.get(mid, ""),
+                "deadline":   int(self.markets_deadline.get(mid, "0")),
+                "resolved":   self.markets_resolved.get(mid, "false") == "true",
+                "outcome":    self.markets_outcome.get(mid, "UNRESOLVED"),
+                "yes_pct":    yes_pct,
                 "total_pool": total,
             })
         return json.dumps(markets)
-

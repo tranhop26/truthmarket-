@@ -1,7 +1,7 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 """
-TruthMarket — MarketRegistry v6 (FINAL)
-Safe types only: TreeMap[str, str], no bool/u256 values, no u256 scalars.
+TruthMarket — MarketRegistry v8
+Safe patterns: no json.loads/isinstance in write functions, raise Exception.
 """
 import json
 from genlayer import *
@@ -10,11 +10,9 @@ from genlayer import *
 class Contract(gl.Contract):
     registry_question:   TreeMap[str, str]
     registry_creator:    TreeMap[str, str]
-    registry_deadline:   TreeMap[str, str]   # str(int unix ts)
-    registry_created_at: TreeMap[str, str]   # str(int unix ts)
-
-    # config/counter stored as str in TreeMap (u256 scalar doesn't persist)
-    state: TreeMap[str, str]  # state["count"], state["market_addr"], state["owner"]
+    registry_deadline:   TreeMap[str, str]
+    registry_created_at: TreeMap[str, str]
+    state: TreeMap[str, str]
 
     def __init__(self, market_contract_addr: str):
         self.registry_question   = TreeMap()
@@ -22,14 +20,14 @@ class Contract(gl.Contract):
         self.registry_deadline   = TreeMap()
         self.registry_created_at = TreeMap()
         self.state               = TreeMap()
-        self.state["count"]        = "0"
-        self.state["market_addr"]  = market_contract_addr
-        self.state["owner"]        = str(gl.message.sender_address)
+        self.state["count"]       = "0"
+        self.state["market_addr"] = market_contract_addr
+        self.state["owner"]       = str(gl.message.sender_address)
 
     @gl.public.write
     def set_market_contract(self, new_address: str) -> None:
         if str(gl.message.sender_address) != self.state.get("owner", ""):
-            raise gl.UserError("ONLY_OWNER")
+            raise Exception("ONLY_OWNER")
         self.state["market_addr"] = new_address
 
     @gl.public.write
@@ -41,17 +39,11 @@ class Contract(gl.Contract):
     ) -> u256:
         market_addr = self.state.get("market_addr", "")
         if not market_addr:
-            raise gl.UserError("MARKET_CONTRACT_NOT_SET")
-
+            raise Exception("MARKET_CONTRACT_NOT_SET")
         if int(deadline_timestamp) <= int(gl.block.timestamp):
-            raise gl.UserError("DEADLINE_MUST_BE_FUTURE")
-
-        try:
-            sources = json.loads(sources_json)
-            if not isinstance(sources, list) or len(sources) < 2:
-                raise gl.UserError("NEED_AT_LEAST_2_SOURCES")
-        except (json.JSONDecodeError, TypeError):
-            raise gl.UserError("INVALID_SOURCES_JSON")
+            raise Exception("DEADLINE_MUST_BE_FUTURE")
+        if len(question) < 10:
+            raise Exception("QUESTION_TOO_SHORT")
 
         # Cross-contract call into Market
         market_contract = gl.get_contract_at(Address(market_addr))
@@ -83,4 +75,3 @@ class Contract(gl.Contract):
             "deadline":   int(self.registry_deadline.get(rid, "0")),
             "created_at": int(self.registry_created_at.get(rid, "0")),
         })
-
