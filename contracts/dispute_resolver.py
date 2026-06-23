@@ -36,7 +36,7 @@ class Contract(gl.Contract):
         self.config["market_addr"]    = market_contract_addr
         self.config["window_hours"]   = str(int(dispute_window_hours))
         self.config["min_bond"]       = str(int(min_bond_amount))
-        self.config["owner"]          = str(gl.message.sender_account)
+        self.config["owner"]          = str(gl.message.sender_address)
 
     # ── RAISE DISPUTE ──────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ class Contract(gl.Contract):
             raise gl.UserError("INVALID_EXTRA_SOURCES_JSON")
 
         self.dispute_active[mid]           = "true"
-        self.dispute_initiator[mid]        = str(gl.message.sender_account)
+        self.dispute_initiator[mid]        = str(gl.message.sender_address)
         self.dispute_bond[mid]             = str(int(gl.message.value))
         self.dispute_extra_sources[mid]    = extra_sources_json
         self.dispute_raised_at[mid]        = str(int(gl.block.timestamp))
@@ -156,7 +156,7 @@ Respond ONLY with valid JSON:
                     market_id,
                     verdict,
                     reasoning,
-                    str(gl.message.sender_account),
+                    str(gl.message.sender_address),
                 )
 
             # Return bond to initiator
@@ -187,3 +187,4 @@ Respond ONLY with valid JSON:
             "min_bond":     int(self.config.get("min_bond", "0")),
             "owner":        self.config.get("owner", ""),
         })
+

@@ -24,11 +24,11 @@ class Contract(gl.Contract):
         self.state               = TreeMap()
         self.state["count"]        = "0"
         self.state["market_addr"]  = market_contract_addr
-        self.state["owner"]        = str(gl.message.sender_account)
+        self.state["owner"]        = str(gl.message.sender_address)
 
     @gl.public.write
     def set_market_contract(self, new_address: str) -> None:
-        if str(gl.message.sender_account) != self.state.get("owner", ""):
+        if str(gl.message.sender_address) != self.state.get("owner", ""):
             raise gl.UserError("ONLY_OWNER")
         self.state["market_addr"] = new_address
 
@@ -59,7 +59,7 @@ class Contract(gl.Contract):
 
         reg_id = str(int(self.state.get("count", "0")))
         self.registry_question[reg_id]   = question
-        self.registry_creator[reg_id]    = str(gl.message.sender_account)
+        self.registry_creator[reg_id]    = str(gl.message.sender_address)
         self.registry_deadline[reg_id]   = str(int(deadline_timestamp))
         self.registry_created_at[reg_id] = str(int(gl.block.timestamp))
         self.state["count"] = str(int(reg_id) + 1)
@@ -83,3 +83,4 @@ class Contract(gl.Contract):
             "deadline":   int(self.registry_deadline.get(rid, "0")),
             "created_at": int(self.registry_created_at.get(rid, "0")),
         })
+

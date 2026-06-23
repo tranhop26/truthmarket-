@@ -90,7 +90,7 @@ class Contract(gl.Contract):
         self.markets_question[mid]    = question
         self.markets_sources[mid]     = sources_json
         self.markets_deadline[mid]    = str(int(deadline_timestamp))
-        self.markets_creator[mid]     = str(gl.message.sender_account)
+        self.markets_creator[mid]     = str(gl.message.sender_address)
         self.markets_resolved[mid]    = "false"
         self.markets_outcome[mid]     = "UNRESOLVED"
         self.markets_reasoning[mid]   = ""
@@ -114,7 +114,7 @@ class Contract(gl.Contract):
         if int(gl.block.timestamp) >= int(self.markets_deadline.get(mid, "0")):
             raise gl.UserError("MARKET_DEADLINE_PASSED")
 
-        sender = str(gl.message.sender_account)
+        sender = str(gl.message.sender_address)
         amount = int(gl.message.value)
         stake_key = f"{mid}:{sender}"
 
@@ -213,7 +213,7 @@ Respond ONLY with valid JSON:
         if self.markets_resolved.get(mid, "false") != "true":
             raise gl.UserError("MARKET_NOT_RESOLVED_YET")
 
-        sender    = str(gl.message.sender_account)
+        sender    = str(gl.message.sender_address)
         claim_key = f"{mid}:{sender}"
         if self.claimed.get(claim_key, "false") == "true":
             raise gl.UserError("ALREADY_CLAIMED")
@@ -241,7 +241,7 @@ Respond ONLY with valid JSON:
             raise gl.UserError("ZERO_PAYOUT")
 
         self.claimed[claim_key] = "true"
-        gl.message.sender_account.transfer(payout)
+        gl.message.sender_address.transfer(payout)
 
     # ── VIEW ───────────────────────────────────────────────────────────────
 
@@ -305,3 +305,4 @@ Respond ONLY with valid JSON:
                 "total_pool": total,
             })
         return json.dumps(markets)
+
