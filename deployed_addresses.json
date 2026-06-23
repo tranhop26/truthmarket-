@@ -1,21 +1,21 @@
 {
-  "deployed_at": "2026-06-23T08:45:12.000Z",
+  "deployed_at": "2026-06-23T09:01:51.000Z",
   "account": "0xe0366890ACf8Bd266a2cA7ad60eCbc35e8270530",
   "network": "studionet",
   "rpc": "https://studio.genlayer.com/api",
-  "note": "v2 — sau khi fix bug u256 vs int (gl.block.timestamp comparison). deploy_tx_hash là 32-byte hash; contract_address là địa chỉ EVM 20-byte thật.",
+  "note": "v4 — fix chinh thuc: them TreeMap() trong __init__ theo PatternTest.py. deploy_tx_hash = 32-byte hash; contract_address = dia chi EVM 20-byte dung de goi.",
   "contracts": {
     "market": {
-      "contract_address": "0xE50616B9eB66CaB94217912805D292a6BB4d498c",
-      "deploy_tx_hash": "0x4f9a41cf433acd689951a41028a5938431ef1839227738b40ac0a0fc033199da"
+      "contract_address": "0xf9ae454E3B2132A57c99a0Efa56b6b00b0F09682",
+      "deploy_tx_hash": "0x14510f4fb442759e8bdb4b975e3b48366364b993da0acbfb406f7695499b8c73"
     },
     "market_registry": {
-      "contract_address": "0x03c4237a53F55dff8549f368C69B5086706A33e4",
-      "deploy_tx_hash": "0x1232c45b2f070785afbbd8c367610150e0fdd2bf81a747d661effb38cad76423"
+      "contract_address": "0xEE559d52cec3634793e28587314C75AC8703Fc46",
+      "deploy_tx_hash": "0xbbd6b0c61b2ad698dfdb7de4fccd6a4ae7de20284eb31197006391915355e471"
     },
     "dispute_resolver": {
-      "contract_address": "0x2a6844E4bf09948B5fa664F671a501d1B198E9c8",
-      "deploy_tx_hash": "0x8c6608a213123a929a2ffb3ef83dfe849022e564f8a4b1254e4b274379e54e18"
+      "contract_address": "0x77700Ddcbe84B9613060A6F25c59597E10ebd070",
+      "deploy_tx_hash": "0x41d97e04e3a74ded24925a93897fb3d70333b22f9d0ef5052655fcf95f8fd579"
     }
   }
 }
