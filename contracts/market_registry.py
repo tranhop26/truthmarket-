@@ -40,8 +40,7 @@ class Contract(gl.Contract):
         market_addr = self.state.get("market_addr", "")
         if not market_addr:
             raise Exception("MARKET_CONTRACT_NOT_SET")
-        if int(deadline_timestamp) <= int(gl.block.timestamp):
-            raise Exception("DEADLINE_MUST_BE_FUTURE")
+        
         if len(question) < 10:
             raise Exception("QUESTION_TOO_SHORT")
 
@@ -53,7 +52,7 @@ class Contract(gl.Contract):
         self.registry_question[reg_id]   = question
         self.registry_creator[reg_id]    = str(gl.message.sender_address)
         self.registry_deadline[reg_id]   = str(int(deadline_timestamp))
-        self.registry_created_at[reg_id] = str(int(gl.block.timestamp))
+        self.registry_created_at[reg_id] = "0"
         self.state["count"] = str(int(reg_id) + 1)
 
         return market_id
@@ -75,3 +74,4 @@ class Contract(gl.Contract):
             "deadline":   int(self.registry_deadline.get(rid, "0")),
             "created_at": int(self.registry_created_at.get(rid, "0")),
         })
+

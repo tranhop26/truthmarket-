@@ -65,8 +65,7 @@ class Contract(gl.Contract):
         deadline_timestamp: u256,
     ) -> u256:
         # Simple validation — no json.loads/isinstance (not GenVM-safe)
-        if int(deadline_timestamp) <= int(gl.block.timestamp):
-            raise Exception("DEADLINE_MUST_BE_FUTURE")
+        
         if len(question) < 10:
             raise Exception("QUESTION_TOO_SHORT")
         if len(sources_json) < 10:
@@ -97,8 +96,7 @@ class Contract(gl.Contract):
             raise Exception("MARKET_NOT_FOUND")
         if self.markets_resolved.get(mid, "false") == "true":
             raise Exception("MARKET_ALREADY_RESOLVED")
-        if int(gl.block.timestamp) >= int(self.markets_deadline.get(mid, "0")):
-            raise Exception("MARKET_DEADLINE_PASSED")
+        
 
         sender    = str(gl.message.sender_address)
         amount    = int(gl.message.value)
@@ -122,8 +120,7 @@ class Contract(gl.Contract):
             raise Exception("MARKET_NOT_FOUND")
         if self.markets_resolved.get(mid, "false") == "true":
             raise Exception("ALREADY_RESOLVED")
-        if int(gl.block.timestamp) < int(self.markets_deadline.get(mid, "0")):
-            raise Exception("DEADLINE_NOT_REACHED")
+        
 
         question     = self.markets_question[mid]
         sources_json = self.markets_sources[mid]
@@ -169,7 +166,7 @@ Respond ONLY with valid JSON:
         self.markets_outcome[mid]     = verdict
         self.markets_reasoning[mid]   = result.get("reasoning", "")
         self.markets_resolved[mid]    = "true"
-        self.markets_resolved_at[mid] = str(int(gl.block.timestamp))
+        self.markets_resolved_at[mid] = "0"
 
     # ── OVERRIDE ───────────────────────────────────────────────────────────
 
@@ -285,3 +282,4 @@ Respond ONLY with valid JSON:
                 "total_pool": total,
             })
         return json.dumps(markets)
+

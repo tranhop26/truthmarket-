@@ -57,7 +57,7 @@ class Contract(gl.Contract):
         self.dispute_initiator[mid]        = str(gl.message.sender_address)
         self.dispute_bond[mid]             = str(int(gl.message.value))
         self.dispute_extra_sources[mid]    = extra_sources_json
-        self.dispute_raised_at[mid]        = str(int(gl.block.timestamp))
+        self.dispute_raised_at[mid]        = "0"
         self.dispute_resolved[mid]         = "false"
         self.dispute_original_outcome[mid] = original_outcome
 
@@ -78,8 +78,7 @@ class Contract(gl.Contract):
 
         raised_at      = int(self.dispute_raised_at.get(mid, "0"))
         window_seconds = int(self.config.get("window_hours", "2")) * 3600
-        if int(gl.block.timestamp) < raised_at + window_seconds:
-            raise Exception("DISPUTE_WINDOW_STILL_OPEN")
+        
 
         original_outcome = self.dispute_original_outcome.get(mid, "")
         extra_json       = self.dispute_extra_sources.get(mid, "[]")
@@ -168,3 +167,4 @@ Respond ONLY with valid JSON:
             "min_bond":     int(self.config.get("min_bond", "0")),
             "owner":        self.config.get("owner", ""),
         })
+
