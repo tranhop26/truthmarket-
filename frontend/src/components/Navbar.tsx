@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { shortAddress } from '@/lib/genlayer';
 
 export default function Navbar() {
-  // Trong production: lấy từ wallet connect (MetaMask, WalletConnect...)
-  // Demo: dùng địa chỉ tĩnh
+  // In production: connect wallet (MetaMask, WalletConnect...)
+  // For demo: static address displayed
   const DEMO_ADDRESS = '0x0000...0001';
 
   return (

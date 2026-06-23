@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TruthMarket — Sàn Dự Đoán Sự Kiện Chủ Quan trên GenLayer',
+  title: 'TruthMarket — AI-Powered Subjective Prediction Market on GenLayer',
   description:
-    'Prediction market đầu tiên cho câu hỏi định tính/văn hóa-xã hội. ' +
-    'AI tự đọc internet và đưa ra phán quyết — không cần trọng tài con người.',
+    'The first prediction market for subjective and cultural questions. ' +
+    'GenLayer AI reads the internet and delivers verdicts — no human arbitrator needed.',
   keywords: ['prediction market', 'GenLayer', 'AI', 'blockchain', 'smart contract'],
   openGraph: {
     title: 'TruthMarket',
-    description: 'AI-powered prediction market trên GenLayer',
+    description: 'AI-powered prediction market on GenLayer',
     type: 'website',
   },
 };
@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    <html lang="en">
       <body>
         {children}
       </body>

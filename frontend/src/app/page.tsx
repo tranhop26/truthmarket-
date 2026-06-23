@@ -31,13 +31,13 @@ export default function HomePage() {
           </div>
 
           <h1 className="hero-title">
-            Ai đúng về{' '}
-            <span className="hero-title-gradient">thế giới chủ quan?</span>
+            Who is right about{' '}
+            <span className="hero-title-gradient">the subjective world?</span>
           </h1>
 
           <p className="hero-subtitle">
-            Đặt cược vào các câu hỏi định tính mà không oracle nào trả lời được.
-            AI của GenLayer tự đọc internet và tự đưa phán quyết — không cần trọng tài.
+            Bet on qualitative questions that no oracle can answer.
+            GenLayer&apos;s AI reads the internet and delivers its verdict — no human arbitrator needed.
           </p>
 
           <div className="hero-cta">
@@ -46,7 +46,7 @@ export default function HomePage() {
               className="btn btn-primary btn-lg"
               onClick={() => setShowCreate(true)}
             >
-              ✨ Tạo Market Mới
+              ✨ Create New Market
             </button>
             <a
               href="https://github.com/tranhop26/truthmarket-"
@@ -54,7 +54,7 @@ export default function HomePage() {
               rel="noopener noreferrer"
               className="btn btn-secondary btn-lg"
             >
-              📖 Xem GitHub
+              📖 View on GitHub
             </a>
           </div>
         </div>
@@ -68,7 +68,7 @@ export default function HomePage() {
             <h2 className="section-title">
               Prediction Markets
             </h2>
-            <span className="section-count">{filtered.length} market</span>
+            <span className="section-count">{filtered.length} market{filtered.length !== 1 ? 's' : ''}</span>
           </div>
 
           {/* Filter tabs */}
@@ -78,21 +78,21 @@ export default function HomePage() {
               className={`tab ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
             >
-              Tất cả
+              All
             </button>
             <button
               id="filter-active"
               className={`tab ${filter === 'active' ? 'active' : ''}`}
               onClick={() => setFilter('active')}
             >
-              🟢 Đang mở
+              🟢 Open
             </button>
             <button
               id="filter-resolved"
               className={`tab ${filter === 'resolved' ? 'active' : ''}`}
               onClick={() => setFilter('resolved')}
             >
-              ✅ Đã giải quyết
+              ✅ Resolved
             </button>
           </div>
 
@@ -100,7 +100,7 @@ export default function HomePage() {
           {loading && (
             <div className="loading-state">
               <div className="loading-spinner" style={{ width: 36, height: 36, borderWidth: 3 }} />
-              <span className="loading-state-text">Đang tải markets từ GenLayer...</span>
+              <span className="loading-state-text">Loading markets from GenLayer...</span>
             </div>
           )}
 
@@ -109,13 +109,13 @@ export default function HomePage() {
             <div className="card" style={{ borderColor: 'var(--no-border)', textAlign: 'center', padding: 40 }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
               <div style={{ color: 'var(--no-color)', fontWeight: 600, marginBottom: 8 }}>
-                Không thể kết nối contract
+                Unable to connect to contract
               </div>
               <div style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>
                 {error}
               </div>
               <button className="btn btn-secondary" onClick={refetch}>
-                Thử lại
+                Retry
               </button>
             </div>
           )}
@@ -124,15 +124,15 @@ export default function HomePage() {
           {!loading && !error && filtered.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon">🔮</div>
-              <div className="empty-state-title">Chưa có market nào</div>
+              <div className="empty-state-title">No markets yet</div>
               <div className="empty-state-sub">
-                Hãy tạo prediction market đầu tiên về một câu hỏi chủ quan mà bạn quan tâm!
+                Create the first prediction market about a subjective question you care about!
               </div>
               <button
                 className="btn btn-primary"
                 onClick={() => setShowCreate(true)}
               >
-                ✨ Tạo Market Đầu Tiên
+                ✨ Create First Market
               </button>
             </div>
           )}
@@ -170,7 +170,7 @@ function MarketCard({ market }: { market: ReturnType<typeof useAllMarkets>['mark
   const deadlinePassed = isDeadlinePassed(market.deadline);
 
   let statusClass = 'active';
-  let statusLabel = '🟢 Đang mở';
+  let statusLabel = '🟢 Open';
 
   if (market.resolved) {
     if (market.outcome === 'YES') {
@@ -182,7 +182,7 @@ function MarketCard({ market }: { market: ReturnType<typeof useAllMarkets>['mark
     }
   } else if (deadlinePassed) {
     statusClass = 'pending';
-    statusLabel = '⏳ Chờ resolve';
+    statusLabel = '⏳ Awaiting resolution';
   }
 
   return (
@@ -222,7 +222,7 @@ function MarketCard({ market }: { market: ReturnType<typeof useAllMarkets>['mark
         <div className="divider" style={{ margin: '12px 0' }} />
         <div className="stats-row">
           <div className="stat-item">
-            <span className="stat-label">Pool tổng</span>
+            <span className="stat-label">Total Pool</span>
             <span className="stat-value">{formatGLT(market.total_pool)}</span>
           </div>
           <div className="stat-item">

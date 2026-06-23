@@ -5,7 +5,7 @@ import { useCreateMarket } from '@/hooks/useContracts';
 
 const DEMO_ACCOUNT = '0x0000000000000000000000000000000000000001' as `0x${string}`;
 
-// Mẫu market câu hỏi định tính để gợi ý người dùng
+// Sample market questions to help users get started
 const EXAMPLE_MARKETS = [
   {
     question: 'Will Christopher Nolan\'s next film be considered a masterpiece by critics?',
@@ -59,18 +59,18 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
       .filter(Boolean);
 
     if (sources.length < 2) {
-      alert('Cần ít nhất 2 URL nguồn');
+      alert('Please provide at least 2 source URLs');
       return;
     }
 
     if (question.trim().length < 10) {
-      alert('Câu hỏi quá ngắn');
+      alert('Question is too short');
       return;
     }
 
     const daysNum = parseInt(deadlineDays);
     if (isNaN(daysNum) || daysNum < 1) {
-      alert('Deadline phải ít nhất 1 ngày');
+      alert('Deadline must be at least 1 day');
       return;
     }
 
@@ -92,7 +92,7 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-labelledby="modal-title">
         <div className="modal-header">
-          <h2 className="modal-title" id="modal-title">✨ Tạo Market Mới</h2>
+          <h2 className="modal-title" id="modal-title">✨ Create New Market</h2>
           <button id="btn-close-modal" className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -114,7 +114,7 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
           <div>
             {/* Example suggestions */}
             <div style={{ marginBottom: 20 }}>
-              <div className="form-label">💡 Gợi ý câu hỏi mẫu</div>
+              <div className="form-label">💡 Example questions</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {EXAMPLE_MARKETS.map((ex, i) => (
                   <button
@@ -147,19 +147,19 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
             {/* Question input */}
             <div className="form-group">
               <label className="form-label" htmlFor="input-question">
-                Câu hỏi dự đoán *
+                Prediction question *
               </label>
               <textarea
                 id="input-question"
                 className="form-textarea"
-                placeholder="Câu hỏi phải là định tính/chủ quan — ví dụ: 'Liệu phim X có được giới phê bình gọi là kiệt tác?'"
+                placeholder="The question must be qualitative/subjective — e.g. 'Will film X be called a masterpiece by critics?'"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 style={{ minHeight: 120 }}
               />
               <div className="form-hint">
-                ⚠️ Không dùng câu hỏi có đáp án số (giá BTC, tỷ số...)
-                — đó là Oracle, không phải TruthMarket.
+                ⚠️ Do not use questions with numerical answers (BTC price, scores...)
+                — those are oracle questions, not TruthMarket questions.
               </div>
             </div>
 
@@ -170,7 +170,7 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
               onClick={() => setStep(2)}
               disabled={question.trim().length < 10}
             >
-              Tiếp theo →
+              Next →
             </button>
           </div>
         )}
@@ -188,36 +188,36 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
               color: 'var(--text-secondary)',
               lineHeight: 1.6,
             }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Câu hỏi</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Question</div>
               {question}
             </div>
 
             {/* Sources */}
             <div className="form-group">
               <label className="form-label" htmlFor="input-sources">
-                URL nguồn dữ liệu * (mỗi dòng 1 URL, tối thiểu 2)
+                Data source URLs * (one URL per line, minimum 2)
               </label>
               <textarea
                 id="input-sources"
                 className="form-textarea"
                 placeholder={
-                  'https://www.rottentomatoes.com/m/ten-phim\n' +
-                  'https://www.metacritic.com/movie/ten-phim\n' +
-                  'https://letterboxd.com/film/ten-phim'
+                  'https://www.rottentomatoes.com/m/movie-name\n' +
+                  'https://www.metacritic.com/movie/movie-name\n' +
+                  'https://letterboxd.com/film/movie-name'
                 }
                 value={sourcesText}
                 onChange={(e) => setSourcesText(e.target.value)}
                 style={{ minHeight: 120, fontFamily: 'var(--font-mono)', fontSize: 13 }}
               />
               <div className="form-hint">
-                AI sẽ đọc TẤT CẢ các URL này khi resolve. Chọn nguồn đáng tin cậy, có nội dung thật.
+                The AI will read ALL of these URLs when resolving. Choose reliable sources with real content.
               </div>
             </div>
 
             {/* Deadline */}
             <div className="form-group">
               <label className="form-label" htmlFor="input-deadline">
-                Thời hạn (ngày kể từ hôm nay)
+                Deadline (days from today)
               </label>
               <input
                 id="input-deadline"
@@ -229,7 +229,7 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setDeadlineDays(e.target.value)}
               />
               <div className="form-hint">
-                Sau {deadlineDays} ngày, bất kỳ ai cũng có thể trigger AI resolution.
+                After {deadlineDays} day{parseInt(deadlineDays) !== 1 ? 's' : ''}, anyone can trigger AI resolution.
               </div>
             </div>
 
@@ -253,7 +253,7 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
                 className="btn btn-secondary"
                 onClick={() => setStep(1)}
               >
-                ← Quay lại
+                ← Back
               </button>
               <button
                 id="btn-create-submit"
@@ -263,9 +263,9 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
                 disabled={loading}
               >
                 {loading ? (
-                  <><div className="loading-spinner" /> Đang tạo market...</>
+                  <><div className="loading-spinner" /> Creating market...</>
                 ) : (
-                  '🚀 Tạo Market'
+                  '🚀 Create Market'
                 )}
               </button>
             </div>

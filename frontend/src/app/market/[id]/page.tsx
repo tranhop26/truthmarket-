@@ -6,7 +6,7 @@ import { useMarket, useUserStake, useDispute, useResolveMarket, usePlaceStake, u
 import { formatGLT, formatDeadline, isDeadlinePassed, shortAddress } from '@/lib/genlayer';
 import Navbar from '@/components/Navbar';
 
-// Demo account — trong production sẽ lấy từ wallet connect
+// Demo account — in production this would come from wallet connect
 const DEMO_ACCOUNT = '0x0000000000000000000000000000000000000001' as `0x${string}`;
 
 export default function MarketDetailPage() {
@@ -36,7 +36,7 @@ export default function MarketDetailPage() {
 
   const deadlinePassed = market ? isDeadlinePassed(market.deadline) : false;
 
-  // ── Handle: Đặt cược ──
+  // ── Handle: Place Stake ──
   const handleStake = async () => {
     if (selectedSide === null || !stakeAmount) return;
     const amount = BigInt(Math.floor(parseFloat(stakeAmount) * 1_000_000));
@@ -44,25 +44,25 @@ export default function MarketDetailPage() {
     const result = await placeStake({ marketId, side: selectedSide, amount, account: DEMO_ACCOUNT });
 
     if (result.success) {
-      showToast('success', 'Đặt cược thành công!', `Tx: ${shortAddress(result.hash ?? '')}`);
+      showToast('success', 'Stake placed!', `Tx: ${shortAddress(result.hash ?? '')}`);
       refetch();
       refetchStake();
       setStakeAmount('');
     } else {
-      showToast('error', 'Đặt cược thất bại', result.error ?? '');
+      showToast('error', 'Stake failed', result.error ?? '');
     }
   };
 
   // ── Handle: Resolve ──
   const handleResolve = async () => {
-    showToast('info', 'AI đang phân tích...', 'Quá trình này có thể mất 30–120 giây. Vui lòng đợi.');
+    showToast('info', 'AI is analyzing...', 'This process may take 30–120 seconds. Please wait.');
     const result = await resolveMarket({ marketId, account: DEMO_ACCOUNT });
 
     if (result.success) {
-      showToast('success', 'Phán quyết hoàn tất!', 'AI đã đọc internet và đưa ra kết quả.');
+      showToast('success', 'Verdict reached!', 'The AI has read the internet and delivered a result.');
       refetch();
     } else {
-      showToast('error', 'Resolve thất bại', result.error ?? '');
+      showToast('error', 'Resolution failed', result.error ?? '');
     }
   };
 
@@ -71,11 +71,11 @@ export default function MarketDetailPage() {
     const result = await claimPayout({ marketId, account: DEMO_ACCOUNT });
 
     if (result.success) {
-      showToast('success', 'Đã nhận phần thưởng!', `Tx: ${shortAddress(result.hash ?? '')}`);
+      showToast('success', 'Payout claimed!', `Tx: ${shortAddress(result.hash ?? '')}`);
       refetch();
       refetchStake();
     } else {
-      showToast('error', 'Claim thất bại', result.error ?? '');
+      showToast('error', 'Claim failed', result.error ?? '');
     }
   };
 
@@ -83,7 +83,7 @@ export default function MarketDetailPage() {
   const handleDispute = async () => {
     const sources = extraSources.split('\n').map(s => s.trim()).filter(Boolean);
     if (sources.length === 0) {
-      showToast('error', 'Thiếu nguồn bổ sung', 'Cần ít nhất 1 URL nguồn bổ sung.');
+      showToast('error', 'Missing extra sources', 'Please provide at least 1 additional source URL.');
       return;
     }
 
@@ -96,10 +96,10 @@ export default function MarketDetailPage() {
     });
 
     if (result.success) {
-      showToast('success', 'Kháng nghị đã nộp!', 'Bond đã được khóa. Chờ final_resolve sau 2 giờ.');
+      showToast('success', 'Dispute submitted!', 'Bond locked. Final resolve expected within 2 hours.');
       refetch();
     } else {
-      showToast('error', 'Kháng nghị thất bại', result.error ?? '');
+      showToast('error', 'Dispute failed', result.error ?? '');
     }
   };
 
@@ -109,7 +109,7 @@ export default function MarketDetailPage() {
         <Navbar />
         <div className="loading-state" style={{ marginTop: 80 }}>
           <div className="loading-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
-          <span className="loading-state-text">Đang tải market từ GenLayer...</span>
+          <span className="loading-state-text">Loading market from GenLayer...</span>
         </div>
       </div>
     );
@@ -122,9 +122,9 @@ export default function MarketDetailPage() {
         <div className="container" style={{ paddingTop: 60 }}>
           <div className="card" style={{ textAlign: 'center', padding: 60 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🔍</div>
-            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Market không tìm thấy</div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Market not found</div>
             <div style={{ color: 'var(--text-muted)', marginBottom: 24 }}>{error}</div>
-            <button className="btn btn-secondary" onClick={() => router.push('/')}>← Về trang chủ</button>
+            <button className="btn btn-secondary" onClick={() => router.push('/')}>← Back to markets</button>
           </div>
         </div>
       </div>
@@ -150,7 +150,7 @@ export default function MarketDetailPage() {
           onClick={() => router.push('/')}
           style={{ marginBottom: 24 }}
         >
-          ← Tất cả Markets
+          ← All Markets
         </button>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
@@ -203,37 +203,37 @@ export default function MarketDetailPage() {
               {/* Pool stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                 <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
-                  <div className="stat-label">Pool tổng</div>
+                  <div className="stat-label">Total Pool</div>
                   <div className="stat-value">{formatGLT(totalPool)}</div>
                 </div>
                 <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
                   <div className="stat-label">Deadline</div>
-                  <div className="stat-value" style={{ fontSize: 12 }}>{new Date(market.deadline * 1000).toLocaleDateString('vi-VN')}</div>
+                  <div className="stat-value" style={{ fontSize: 12 }}>{new Date(market.deadline * 1000).toLocaleDateString('en-US')}</div>
                 </div>
                 <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
-                  <div className="stat-label">Trạng thái</div>
+                  <div className="stat-label">Status</div>
                   <div className="stat-value" style={{ fontSize: 12, color: market.resolved ? 'var(--yes-color)' : 'var(--brand-cyan)' }}>
-                    {market.resolved ? '✅ Đã resolve' : deadlinePassed ? '⏳ Chờ resolve' : '🟢 Đang mở'}
+                    {market.resolved ? '✅ Resolved' : deadlinePassed ? '⏳ Awaiting resolution' : '🟢 Open'}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* VERDICT PANEL (nếu đã resolved) */}
+            {/* VERDICT PANEL (if resolved) */}
             {market.resolved && (
               <div className={`verdict-panel ${market.outcome.toLowerCase()}`} style={{ marginBottom: 20 }}>
                 <span className="verdict-emoji">
                   {market.outcome === 'YES' ? '🟢' : '🔴'}
                 </span>
-                <div className="verdict-label">Phán quyết AI</div>
+                <div className="verdict-label">AI Verdict</div>
                 <div className={`verdict-value ${market.outcome.toLowerCase()}`}>
                   {market.outcome}
                 </div>
 
-                {/* Reasoning — điểm UX quan trọng: hiển thị lý do AI */}
+                {/* Reasoning — important UX: show AI's reasoning */}
                 {market.reasoning && (
                   <div className="verdict-reasoning">
-                    <div className="verdict-reasoning-label">💭 Lý do AI đưa ra phán quyết:</div>
+                    <div className="verdict-reasoning-label">💭 AI reasoning:</div>
                     {market.reasoning}
                   </div>
                 )}
@@ -248,16 +248,16 @@ export default function MarketDetailPage() {
                     disabled={claiming}
                   >
                     {claiming ? (
-                      <><div className="loading-spinner" /> Đang xử lý...</>
+                      <><div className="loading-spinner" /> Processing...</>
                     ) : (
-                      '💰 Nhận Phần Thưởng'
+                      '💰 Claim Payout'
                     )}
                   </button>
                 )}
 
                 {stake?.claimed && (
                   <div style={{ marginTop: 16, padding: '10px 16px', background: 'rgba(16,185,129,0.1)', borderRadius: 'var(--radius-md)', color: 'var(--yes-color)', fontSize: 14, fontWeight: 600 }}>
-                    ✅ Đã nhận phần thưởng
+                    ✅ Payout already claimed
                   </div>
                 )}
               </div>
@@ -267,23 +267,23 @@ export default function MarketDetailPage() {
             {resolving && (
               <div className="ai-resolving" style={{ marginBottom: 20 }}>
                 <div className="ai-resolving-spinner" />
-                <div className="ai-resolving-title">AI đang phân tích bằng chứng...</div>
+                <div className="ai-resolving-title">AI is analyzing evidence...</div>
                 <div className="ai-resolving-steps">
                   <div className="ai-step active">
                     <div className="ai-step-icon" />
-                    Đọc nội dung từng URL nguồn
+                    Reading content from source URLs
                   </div>
                   <div className="ai-step active">
                     <div className="ai-step-icon" />
-                    Gọi LLM phân tích bằng chứng
+                    Calling LLM to analyze evidence
                   </div>
                   <div className="ai-step active">
                     <div className="ai-step-icon" />
-                    Các validator đạt đồng thuận
+                    Validators reaching consensus
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-                  Quá trình này thường mất 30–120 giây tùy số lượng validator
+                  This usually takes 30–120 seconds depending on the number of validators
                 </div>
               </div>
             )}
@@ -291,7 +291,7 @@ export default function MarketDetailPage() {
             {/* Sources */}
             <div className="card">
               <div style={{ fontWeight: 600, marginBottom: 16, fontSize: 15 }}>
-                📰 Nguồn dữ liệu AI
+                📰 AI Data Sources
               </div>
               <div className="sources-list">
                 {market.sources.map((url, i) => (
@@ -315,7 +315,7 @@ export default function MarketDetailPage() {
             {/* User Stake Summary */}
             {(stake?.yes_stake ?? 0) + (stake?.no_stake ?? 0) > 0 && (
               <div className="card" style={{ marginBottom: 16, borderColor: 'rgba(124,58,237,0.3)' }}>
-                <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>📊 Stake của bạn</div>
+                <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>📊 Your Stake</div>
                 {(stake?.yes_stake ?? 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ color: 'var(--yes-color)', fontSize: 14 }}>YES</span>
@@ -340,7 +340,7 @@ export default function MarketDetailPage() {
                     className={`tab ${activeTab === 'stake' ? 'active' : ''}`}
                     onClick={() => setActiveTab('stake')}
                   >
-                    💰 Cược
+                    💰 Stake
                   </button>
                   {deadlinePassed && (
                     <button
@@ -356,7 +356,7 @@ export default function MarketDetailPage() {
                 {/* Stake Tab */}
                 {activeTab === 'stake' && !deadlinePassed && (
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Đặt cược</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Place a Stake</div>
 
                     {/* Side Selection */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
@@ -379,7 +379,7 @@ export default function MarketDetailPage() {
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Số lượng (GLT)</label>
+                      <label className="form-label">Amount (GLT)</label>
                       <input
                         id="input-stake-amount"
                         type="number"
@@ -392,7 +392,7 @@ export default function MarketDetailPage() {
                       />
                       <div className="form-hint">
                         {selectedSide !== null && stakeAmount && (
-                          <>Odds hiện tại: {selectedSide ? market.yes_pct : market.no_pct}%</>
+                          <>Current odds: {selectedSide ? market.yes_pct : market.no_pct}%</>
                         )}
                       </div>
                     </div>
@@ -405,9 +405,9 @@ export default function MarketDetailPage() {
                       disabled={staking || selectedSide === null || !stakeAmount}
                     >
                       {staking ? (
-                        <><div className="loading-spinner" /> Đang gửi...</>
+                        <><div className="loading-spinner" /> Submitting...</>
                       ) : (
-                        `Đặt cược ${selectedSide === true ? 'YES' : selectedSide === false ? 'NO' : '?'}`
+                        `Stake ${selectedSide === true ? 'YES' : selectedSide === false ? 'NO' : '?'}`
                       )}
                     </button>
                   </div>
@@ -416,13 +416,13 @@ export default function MarketDetailPage() {
                 {/* Resolve Tab */}
                 {activeTab === 'resolve' && deadlinePassed && (
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>🤖 Resolve bằng AI</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>🤖 Resolve with AI</div>
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.7 }}>
-                      AI sẽ tự đọc các nguồn URL của market và đưa ra phán quyết. Quá trình này có thể mất <strong style={{ color: 'var(--text-secondary)' }}>30–120 giây</strong>.
+                      The AI will read all source URLs and deliver a verdict. This may take <strong style={{ color: 'var(--text-secondary)' }}>30–120 seconds</strong>.
                     </div>
 
                     <div style={{ background: 'var(--gradient-brand-subtle)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-                      💡 Quy trình: Đọc web → Gọi LLM → Đạt đồng thuận giữa các validator GenLayer
+                      💡 Process: Read web → Call LLM → Achieve consensus among GenLayer validators
                     </div>
 
                     <button
@@ -433,9 +433,9 @@ export default function MarketDetailPage() {
                       disabled={resolving}
                     >
                       {resolving ? (
-                        <><div className="loading-spinner" /> AI đang phân tích...</>
+                        <><div className="loading-spinner" /> AI analyzing...</>
                       ) : (
-                        '🚀 Kích hoạt AI Resolution'
+                        '🚀 Trigger AI Resolution'
                       )}
                     </button>
                   </div>
@@ -443,20 +443,20 @@ export default function MarketDetailPage() {
               </div>
             )}
 
-            {/* Dispute Panel (sau khi resolved, trong window 2h) */}
+            {/* Dispute Panel (after resolved, within 2h window) */}
             {market.resolved && !dispute?.active && !dispute?.resolved && (
               <div className="card" style={{ marginTop: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>⚖️ Kháng nghị phán quyết</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>⚖️ Appeal the Verdict</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.7 }}>
-                  Không đồng ý với phán quyết? Nộp kháng nghị kèm nguồn bổ sung. Bond: 100,000 wei.
+                  Disagree with the verdict? Submit an appeal with additional sources. Bond: 100,000 wei.
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">URL nguồn bổ sung (mỗi dòng 1 URL)</label>
+                  <label className="form-label">Additional source URLs (one per line)</label>
                   <textarea
                     id="input-extra-sources"
                     className="form-textarea"
-                    placeholder="https://new-source1.com&#10;https://new-source2.com"
+                    placeholder={"https://new-source1.com\nhttps://new-source2.com"}
                     value={extraSources}
                     onChange={(e) => setExtraSources(e.target.value)}
                     style={{ minHeight: 80 }}
@@ -471,9 +471,9 @@ export default function MarketDetailPage() {
                   disabled={disputing}
                 >
                   {disputing ? (
-                    <><div className="loading-spinner" /> Đang nộp...</>
+                    <><div className="loading-spinner" /> Submitting...</>
                   ) : (
-                    '🛡️ Nộp Kháng Nghị (100k wei)'
+                    '🛡️ Submit Appeal (100k wei)'
                   )}
                 </button>
               </div>
@@ -482,11 +482,11 @@ export default function MarketDetailPage() {
             {/* Active dispute info */}
             {dispute?.active && (
               <div className="card" style={{ marginTop: 16, borderColor: 'rgba(245,158,11,0.3)' }}>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#f59e0b' }}>⏳ Đang có kháng nghị</div>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#f59e0b' }}>⏳ Active Appeal</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  Người kháng nghị: {shortAddress(dispute.initiator)}<br />
+                  Appellant: {shortAddress(dispute.initiator)}<br />
                   Bond: {formatGLT(dispute.bond)}<br />
-                  Final resolve sau 2 giờ kể từ khi raise dispute.
+                  Final resolve expected 2 hours after appeal was raised.
                 </div>
               </div>
             )}

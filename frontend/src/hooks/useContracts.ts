@@ -1,9 +1,9 @@
 /**
  * TruthMarket — Contract hooks
  *
- * React hooks để đọc và ghi state vào 3 contract GenLayer.
- * Tất cả call đều là THẬT — không có mock hay hardcode dữ liệu.
- * API dùng đúng theo genlayer-js v1.x: readContract / writeContract
+ * React hooks for reading and writing state to the 3 GenLayer contracts.
+ * All calls are REAL — no mocks or hardcoded data.
+ * API follows genlayer-js v1.x: readContract / writeContract
  */
 
 'use client';
@@ -63,7 +63,7 @@ export interface Dispute {
 // ──────────────────────────────────────────────────────────
 
 /**
- * Hook: đọc danh sách tất cả market từ contract (thật)
+ * Hook: read the list of all markets from the contract (live)
  */
 export function useAllMarkets() {
   const [markets, setMarkets] = useState<MarketSummary[]>([]);
@@ -72,7 +72,7 @@ export function useAllMarkets() {
 
   const refetch = useCallback(async () => {
     if (!CONTRACT_ADDRESSES.market) {
-      setError('Chưa cấu hình NEXT_PUBLIC_MARKET_CONTRACT_ADDRESS trong .env.local');
+      setError('NEXT_PUBLIC_MARKET_CONTRACT_ADDRESS is not configured in .env.local');
       setLoading(false);
       return;
     }
@@ -88,10 +88,10 @@ export function useAllMarkets() {
       });
 
       const parsed: MarketSummary[] = JSON.parse(result as string);
-      setMarkets(parsed.reverse()); // mới nhất trước
+      setMarkets(parsed.reverse()); // newest first
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`Lỗi đọc markets: ${msg}`);
+      setError(`Error reading markets: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export function useAllMarkets() {
 }
 
 /**
- * Hook: đọc chi tiết một market theo market_id (thật)
+ * Hook: read details of a single market by market_id (live)
  */
 export function useMarket(marketId: number) {
   const [market, setMarket] = useState<Market | null>(null);
@@ -116,7 +116,7 @@ export function useMarket(marketId: number) {
 
   const refetch = useCallback(async () => {
     if (!CONTRACT_ADDRESSES.market) {
-      setError('Chưa cấu hình địa chỉ contract');
+      setError('Contract address not configured');
       setLoading(false);
       return;
     }
@@ -134,7 +134,7 @@ export function useMarket(marketId: number) {
       setMarket(JSON.parse(result as string));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`Lỗi đọc market: ${msg}`);
+      setError(`Error reading market: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -150,7 +150,7 @@ export function useMarket(marketId: number) {
 }
 
 /**
- * Hook: đọc stake của user trong một market (thật)
+ * Hook: read a user's stake in a market (live)
  */
 export function useUserStake(marketId: number, userAddress: string) {
   const [stake, setStake] = useState<UserStake | null>(null);
@@ -182,7 +182,7 @@ export function useUserStake(marketId: number, userAddress: string) {
 }
 
 /**
- * Hook: đọc thông tin dispute của market (thật)
+ * Hook: read dispute information for a market (live)
  */
 export function useDispute(marketId: number) {
   const [dispute, setDispute] = useState<Dispute | null>(null);
@@ -214,11 +214,11 @@ export function useDispute(marketId: number) {
 }
 
 // ──────────────────────────────────────────────────────────
-//  Write Hooks — dùng glClient.writeContract thật
+//  Write Hooks — using real glClient.writeContract calls
 // ──────────────────────────────────────────────────────────
 
 /**
- * Hook: tạo market mới (gọi thật vào contract)
+ * Hook: create a new market (real contract call)
  */
 export function useCreateMarket() {
   const [loading, setLoading] = useState(false);
@@ -234,7 +234,7 @@ export function useCreateMarket() {
     setError(null);
 
     try {
-      // writeContract genlayer-js v1.x: value là bắt buộc (dù = 0n)
+      // writeContract genlayer-js v1.x: value is required (even if 0n)
       const hash = await glClient.writeContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'create_market',
@@ -260,7 +260,7 @@ export function useCreateMarket() {
 }
 
 /**
- * Hook: đặt cược (gọi thật, payable)
+ * Hook: place a stake (real contract call, payable)
  */
 export function usePlaceStake() {
   const [loading, setLoading] = useState(false);
@@ -297,8 +297,8 @@ export function usePlaceStake() {
 }
 
 /**
- * Hook: resolve market — trigger AI resolution
- * NOTE: này có thể mất 30-120s (AI đọc web + LLM + consensus)
+ * Hook: resolve a market — triggers AI resolution
+ * NOTE: this can take 30–120s (AI reads web + LLM + consensus)
  */
 export function useResolveMarket() {
   const [loading, setLoading] = useState(false);
@@ -317,7 +317,7 @@ export function useResolveMarket() {
         functionName: 'resolve_market',
         args: [BigInt(params.marketId)],
         value: 0n,
-        // Tăng timeout vì AI resolution mất thời gian
+        // Increase timeout because AI resolution takes time
         consensusMaxRotations: 5,
       });
 
@@ -335,7 +335,7 @@ export function useResolveMarket() {
 }
 
 /**
- * Hook: claim payout (gọi thật)
+ * Hook: claim payout (real contract call)
  */
 export function useClaimPayout() {
   const [loading, setLoading] = useState(false);
@@ -370,7 +370,7 @@ export function useClaimPayout() {
 }
 
 /**
- * Hook: raise dispute (gọi thật, payable bond)
+ * Hook: raise a dispute (real contract call, payable bond)
  */
 export function useRaiseDispute() {
   const [loading, setLoading] = useState(false);
