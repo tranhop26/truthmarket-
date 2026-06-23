@@ -1,21 +1,11 @@
 {
-  "deployed_at": "2026-06-23T09:01:51.000Z",
+  "deployed_at": "2026-06-23T16:25:59.145Z",
   "account": "0xe0366890ACf8Bd266a2cA7ad60eCbc35e8270530",
   "network": "studionet",
   "rpc": "https://studio.genlayer.com/api",
-  "note": "v4 — fix chinh thuc: them TreeMap() trong __init__ theo PatternTest.py. deploy_tx_hash = 32-byte hash; contract_address = dia chi EVM 20-byte dung de goi.",
   "contracts": {
-    "market": {
-      "contract_address": "0xf9ae454E3B2132A57c99a0Efa56b6b00b0F09682",
-      "deploy_tx_hash": "0x14510f4fb442759e8bdb4b975e3b48366364b993da0acbfb406f7695499b8c73"
-    },
-    "market_registry": {
-      "contract_address": "0xEE559d52cec3634793e28587314C75AC8703Fc46",
-      "deploy_tx_hash": "0xbbd6b0c61b2ad698dfdb7de4fccd6a4ae7de20284eb31197006391915355e471"
-    },
-    "dispute_resolver": {
-      "contract_address": "0x77700Ddcbe84B9613060A6F25c59597E10ebd070",
-      "deploy_tx_hash": "0x41d97e04e3a74ded24925a93897fb3d70333b22f9d0ef5052655fcf95f8fd579"
-    }
+    "market": "0x0ba8A1f3A816236237CE4d2a9FE1633a00dd81bD",
+    "market_registry": "0x6E42C8CB8900e46A72D1f062AAed065A1F365998",
+    "dispute_resolver": "0xF6AA9BfA8358294d72d2a68E44b70B79a6789df8"
   }
 }
