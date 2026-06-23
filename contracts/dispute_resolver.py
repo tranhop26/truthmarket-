@@ -1,42 +1,23 @@
-# v0.2.16
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 """
-TruthMarket — DisputeResolver Contract (Appeal/Escalation)
-
-Contract xử lý kháng nghị (appeal) khi người dùng không đồng ý với phán quyết AI.
-
-Flow:
-1. Sau khi Market.resolve_market() chạy xong → mở cửa sổ kháng nghị (X giờ)
-2. Người khiếu nại gọi raise_dispute() kèm bond đặt cọc (chống spam)
-3. Sau window kháng nghị, gọi final_resolve() → AI chạy lại với:
-   - Nhiều nguồn hơn (nguồn bổ sung do người dispute cung cấp)
-   - Principle nghiêm ngặt hơn trong eq_principle.prompt_comparative
-4. Nếu kết quả appeal ≠ kết quả gốc → gọi Market.override_outcome(), trả bond lại
-5. Nếu kết quả appeal = kết quả gốc → mất bond (chống spam dispute)
+TruthMarket — DisputeResolver v6 (FINAL)
+Safe types only: TreeMap[str, str], no bool/u256 values, no u256 scalars.
 """
-
 import json
 from genlayer import *
 
 
 class Contract(gl.Contract):
-    # Địa chỉ Market contract
-    market_contract_address: str
+    dispute_initiator:        TreeMap[str, str]
+    dispute_bond:             TreeMap[str, str]   # str(int wei)
+    dispute_extra_sources:    TreeMap[str, str]   # JSON-encoded list[str]
+    dispute_raised_at:        TreeMap[str, str]   # str(int unix ts)
+    dispute_original_outcome: TreeMap[str, str]
+    dispute_active:           TreeMap[str, str]   # "true" / "false"
+    dispute_resolved:         TreeMap[str, str]   # "true" / "false"
 
-    # Thông tin dispute của từng market
-    # key = market_id
-    dispute_active: TreeMap[u256, bool]
-    dispute_initiator: TreeMap[u256, str]         # người raise_dispute
-    dispute_bond: TreeMap[u256, u256]             # số tiền đặt cọc
-    dispute_extra_sources: TreeMap[u256, str]     # JSON-encoded list[str] URLs bổ sung
-    dispute_raised_at: TreeMap[u256, u256]        # timestamp khi raise
-    dispute_resolved: TreeMap[u256, bool]         # đã final_resolve chưa
-    dispute_original_outcome: TreeMap[u256, str]  # outcome gốc trước khi dispute
-
-    # Cấu hình
-    dispute_window_hours: u256                    # cửa sổ kháng nghị (giờ)
-    min_bond_amount: u256                         # bond tối thiểu (wei)
-    owner: str
+    # config: market_addr, window_hours, min_bond, owner
+    config: TreeMap[str, str]
 
     def __init__(
         self,
@@ -44,50 +25,36 @@ class Contract(gl.Contract):
         dispute_window_hours: u256,
         min_bond_amount: u256,
     ):
-        self.market_contract_address = market_contract_addr
-        self.dispute_window_hours = dispute_window_hours
-        self.min_bond_amount = min_bond_amount
-        self.owner = str(gl.message.sender_account)
-        self.dispute_active = TreeMap()
-        self.dispute_initiator = TreeMap()
-        self.dispute_bond = TreeMap()
-        self.dispute_extra_sources = TreeMap()
-        self.dispute_raised_at = TreeMap()
-        self.dispute_resolved = TreeMap()
+        self.dispute_initiator        = TreeMap()
+        self.dispute_bond             = TreeMap()
+        self.dispute_extra_sources    = TreeMap()
+        self.dispute_raised_at        = TreeMap()
         self.dispute_original_outcome = TreeMap()
+        self.dispute_active           = TreeMap()
+        self.dispute_resolved         = TreeMap()
+        self.config                   = TreeMap()
+        self.config["market_addr"]    = market_contract_addr
+        self.config["window_hours"]   = str(int(dispute_window_hours))
+        self.config["min_bond"]       = str(int(min_bond_amount))
+        self.config["owner"]          = str(gl.message.sender_account)
 
-    # =========================================================
-    #  KHÁNG NGHỊ
-    # =========================================================
+    # ── RAISE DISPUTE ──────────────────────────────────────────────────────
 
     @gl.public.write.payable
     def raise_dispute(
         self,
         market_id: u256,
-        extra_sources_json: str,
         original_outcome: str,
+        extra_sources_json: str,
     ) -> None:
-        """
-        Nộp đơn kháng nghị phán quyết của Market.
+        mid = str(int(market_id))
+        min_bond = int(self.config.get("min_bond", "0"))
+        if int(gl.message.value) < min_bond:
+            raise gl.UserError("INSUFFICIENT_BOND")
 
-        Args:
-            market_id: ID của market muốn kháng nghị
-            extra_sources_json: JSON-encoded list URLs bổ sung (tối thiểu 1 URL mới)
-            original_outcome: Phán quyết gốc mà người dùng không đồng ý ("YES" hoặc "NO")
-        """
-        # Validate bond
-        if gl.message.value < int(self.min_bond_amount):
-            raise gl.UserError("BOND_TOO_LOW")
-
-        # Validate chưa có dispute đang mở
-        if self.dispute_active.get(market_id, False):
+        if self.dispute_active.get(mid, "false") == "true":
             raise gl.UserError("DISPUTE_ALREADY_ACTIVE")
 
-        # Validate outcome hợp lệ
-        if original_outcome not in ("YES", "NO"):
-            raise gl.UserError("INVALID_ORIGINAL_OUTCOME")
-
-        # Validate extra sources
         try:
             extra_sources = json.loads(extra_sources_json)
             if not isinstance(extra_sources, list) or len(extra_sources) < 1:
@@ -95,18 +62,15 @@ class Contract(gl.Contract):
         except (json.JSONDecodeError, TypeError):
             raise gl.UserError("INVALID_EXTRA_SOURCES_JSON")
 
-        # Ghi nhận dispute
-        self.dispute_active[market_id] = True
-        self.dispute_initiator[market_id] = str(gl.message.sender_account)
-        self.dispute_bond[market_id] = gl.message.value
-        self.dispute_extra_sources[market_id] = extra_sources_json
-        self.dispute_raised_at[market_id] = u256(int(gl.block.timestamp))
-        self.dispute_resolved[market_id] = False
-        self.dispute_original_outcome[market_id] = original_outcome
+        self.dispute_active[mid]           = "true"
+        self.dispute_initiator[mid]        = str(gl.message.sender_account)
+        self.dispute_bond[mid]             = str(int(gl.message.value))
+        self.dispute_extra_sources[mid]    = extra_sources_json
+        self.dispute_raised_at[mid]        = str(int(gl.block.timestamp))
+        self.dispute_resolved[mid]         = "false"
+        self.dispute_original_outcome[mid] = original_outcome
 
-    # =========================================================
-    #  FINAL RESOLUTION (AI chạy lại với principle nghiêm ngặt hơn)
-    # =========================================================
+    # ── FINAL RESOLVE ──────────────────────────────────────────────────────
 
     @gl.public.write
     def final_resolve(
@@ -115,148 +79,111 @@ class Contract(gl.Contract):
         original_question: str,
         original_sources_json: str,
     ) -> None:
-        """
-        Chạy lại resolution với nguồn bổ sung và tiêu chuẩn nghiêm ngặt hơn.
-
-        Kết quả binding cuối cùng — nếu khác phán quyết gốc sẽ override Market.
-        """
-        if not self.dispute_active.get(market_id, False):
+        mid = str(int(market_id))
+        if self.dispute_active.get(mid, "false") != "true":
             raise gl.UserError("NO_ACTIVE_DISPUTE")
-
-        if self.dispute_resolved.get(market_id, False):
+        if self.dispute_resolved.get(mid, "false") == "true":
             raise gl.UserError("DISPUTE_ALREADY_RESOLVED")
 
-        # Validate cửa sổ kháng nghị đã đóng (tối thiểu phải qua dispute_window_hours)
-        raised_at = int(self.dispute_raised_at[market_id])
-        window_seconds = int(self.dispute_window_hours) * 3600
+        raised_at      = int(self.dispute_raised_at.get(mid, "0"))
+        window_hours   = int(self.config.get("window_hours", "2"))
+        window_seconds = window_hours * 3600
         if int(gl.block.timestamp) < raised_at + window_seconds:
             raise gl.UserError("DISPUTE_WINDOW_STILL_OPEN")
 
-        original_outcome = self.dispute_original_outcome[market_id]
-        extra_sources_json = self.dispute_extra_sources[market_id]
+        original_outcome = self.dispute_original_outcome.get(mid, "")
+        extra_json       = self.dispute_extra_sources.get(mid, "[]")
 
         try:
             original_sources = json.loads(original_sources_json)
-            extra_sources = json.loads(extra_sources_json)
-            all_sources = original_sources + extra_sources
+            extra_sources    = json.loads(extra_json)
+            all_sources      = original_sources + extra_sources
         except Exception:
             raise gl.UserError("SOURCES_PARSE_FAILED")
 
-        # --- Inner function: leader đọc web với TẤT CẢ nguồn (gốc + bổ sung) ---
-        def appeal_leader_fn():
+        def leader_fn():
             evidence_chunks = []
-
             for url in all_sources:
                 try:
                     page_text = gl.nondet.web.render(url, mode="text")
                     if page_text and len(page_text.strip()) > 50:
-                        evidence_chunks.append(
-                            f"SOURCE ({url}):\n{page_text[:2500]}"
-                        )
+                        evidence_chunks.append(f"SOURCE ({url}):\n{page_text[:2000]}")
                 except Exception:
                     continue
-
             if len(evidence_chunks) < 2:
-                raise gl.UserError("INSUFFICIENT_EVIDENCE_FOR_APPEAL")
-
-            combined_evidence = "\n\n---\n\n".join(evidence_chunks)
-
-            prompt = f"""You are a senior AI arbiter reviewing an APPEAL of a prediction market verdict.
-The original verdict was: {original_outcome}
-A dispute has been raised. Your task is to reconsider the question with additional sources.
+                raise gl.UserError("INSUFFICIENT_EVIDENCE")
+            combined = "\n\n---\n\n".join(evidence_chunks)
+            prompt = f"""You are an appeal judge for a prediction market.
+The ORIGINAL verdict was: {original_outcome}
+Your task: determine the CORRECT verdict (YES or NO) based on ALL evidence below,
+applying a HIGHER standard of proof than the original resolution.
 
 QUESTION: {original_question}
 
-EVIDENCE (including new sources provided in the appeal):
-{combined_evidence}
+EVIDENCE:
+{combined}
 
-STRICT INSTRUCTIONS:
-- You must apply a HIGHER standard of evidence than the original verdict
-- Only reverse the verdict if you find CLEAR AND CONVINCING evidence against it
-- Carefully evaluate the new sources provided by the disputer
-- Be explicit about which sources were most persuasive
-- Your verdict is FINAL and cannot be appealed further
-
-Respond ONLY with valid JSON, no other text:
-{{"verdict": "YES" or "NO", "confidence": number between 0.0 and 1.0, "reasoning": "detailed explanation of why you are or are not reversing the original verdict", "reversed": true or false}}"""
-
+Respond ONLY with valid JSON:
+{{"verdict": "YES" or "NO", "confidence": 0.0-1.0, "reasoning": "brief explanation"}}"""
             raw = gl.nondet.exec_prompt(prompt, response_format="json")
             return json.dumps(raw, sort_keys=True)
 
-        # Dùng principle nghiêm ngặt hơn — yêu cầu consensus mạnh hơn về verdict VÀ reversed
         result_str = gl.eq_principle.prompt_comparative(
-            appeal_leader_fn,
+            leader_fn,
             principle=(
-                "Two appeal results are equivalent if they have the same 'verdict' value "
-                "(both YES or both NO) AND the same 'reversed' boolean value "
-                "(both true or both false). Differences in confidence or reasoning text "
-                "are acceptable. This is a STRICT standard — both conditions must match."
+                "Two results are equivalent if they have the same 'verdict' value. "
+                "Differences in confidence or reasoning are acceptable."
             ),
         )
 
-        # --- Parse kết quả appeal ---
         try:
-            result = json.loads(result_str)
-            new_verdict = result["verdict"]
-            reversed_flag = result.get("reversed", False)
-            new_reasoning = result.get("reasoning", "")
-        except (json.JSONDecodeError, KeyError, TypeError):
-            raise gl.UserError("APPEAL_RESPONSE_PARSE_FAILED")
+            result  = json.loads(result_str)
+            verdict = result["verdict"]
+        except Exception:
+            raise gl.UserError("LLM_RESPONSE_PARSE_FAILED")
+        if verdict not in ("YES", "NO"):
+            raise gl.UserError("MALFORMED_VERDICT")
 
-        if new_verdict not in ("YES", "NO"):
-            raise gl.UserError("MALFORMED_APPEAL_VERDICT")
+        self.dispute_resolved[mid] = "true"
 
-        # --- Đánh dấu dispute đã resolved ---
-        self.dispute_resolved[market_id] = True
-        self.dispute_active[market_id] = False
+        # Override Market if verdict changed
+        if verdict != original_outcome:
+            market_addr = self.config.get("market_addr", "")
+            if market_addr:
+                market_contract = gl.get_contract_at(Address(market_addr))
+                reasoning = result.get("reasoning", "Appeal overturned original verdict")
+                market_contract.override_outcome(
+                    market_id,
+                    verdict,
+                    reasoning,
+                    str(gl.message.sender_account),
+                )
 
-        initiator = self.dispute_initiator[market_id]
-        bond_amount = int(self.dispute_bond[market_id])
+            # Return bond to initiator
+            initiator = self.dispute_initiator.get(mid, "")
+            bond      = int(self.dispute_bond.get(mid, "0"))
+            if initiator and bond > 0:
+                Address(initiator).transfer(bond)
 
-        if reversed_flag and new_verdict != original_outcome:
-            # Appeal THẮNG → override Market outcome + trả bond
-            market_contract = gl.get_contract_at(Address(self.market_contract_address))
-            market_contract.override_outcome(
-                market_id,
-                new_verdict,
-                f"APPEAL: {new_reasoning}",
-                str(gl.message.contract_account),
-            )
-
-            # Trả bond lại cho initiator (cộng thêm 20% thưởng từ phí protocol)
-            payout = int(bond_amount * 12 // 10)  # 120% bond
-            Address(initiator).transfer(min(payout, bond_amount))  # an toàn: tối đa bond gốc
-        # Nếu appeal THUA → bond bị giữ lại trong contract (discourage spam)
-
-    # =========================================================
-    #  VIEW FUNCTIONS
-    # =========================================================
+    # ── VIEW ───────────────────────────────────────────────────────────────
 
     @gl.public.view
     def get_dispute(self, market_id: u256) -> str:
-        """Trả về trạng thái dispute của một market."""
-        data = {
-            "market_id": int(market_id),
-            "active": self.dispute_active.get(market_id, False),
-            "initiator": self.dispute_initiator.get(market_id, ""),
-            "bond": int(self.dispute_bond.get(market_id, u256(0))),
-            "raised_at": int(self.dispute_raised_at.get(market_id, u256(0))),
-            "resolved": self.dispute_resolved.get(market_id, False),
-            "original_outcome": self.dispute_original_outcome.get(market_id, ""),
-        }
-        return json.dumps(data)
+        mid = str(int(market_id))
+        return json.dumps({
+            "active":            self.dispute_active.get(mid, "false") == "true",
+            "resolved":          self.dispute_resolved.get(mid, "false") == "true",
+            "initiator":         self.dispute_initiator.get(mid, ""),
+            "bond":              int(self.dispute_bond.get(mid, "0")),
+            "raised_at":         int(self.dispute_raised_at.get(mid, "0")),
+            "original_outcome":  self.dispute_original_outcome.get(mid, ""),
+        })
 
     @gl.public.view
-    def get_dispute_window_hours(self) -> u256:
-        """Cửa sổ kháng nghị (giờ)."""
-        return self.dispute_window_hours
-
-    @gl.public.view
-    def get_min_bond_amount(self) -> u256:
-        """Bond tối thiểu để raise dispute (wei)."""
-        return self.min_bond_amount
-
-    @gl.public.view
-    def get_owner(self) -> str:
-        """Địa chỉ owner của DisputeResolver."""
-        return self.owner
+    def get_config(self) -> str:
+        return json.dumps({
+            "market_addr":  self.config.get("market_addr", ""),
+            "window_hours": int(self.config.get("window_hours", "2")),
+            "min_bond":     int(self.config.get("min_bond", "0")),
+            "owner":        self.config.get("owner", ""),
+        })
