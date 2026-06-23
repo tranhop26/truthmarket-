@@ -34,7 +34,7 @@ class Contract(gl.Contract):
     def __init__(self, market_contract_addr: str):
         # KHÔNG gán TreeMap() ở đây
         self.market_contract_address = market_contract_addr
-        self.registry_count = u256(0)
+        self.registry_count = 0
         self.owner = str(gl.message.sender_account)
 
     # =========================================================
@@ -90,9 +90,9 @@ class Contract(gl.Contract):
         self.registry_question[reg_id] = question
         self.registry_creator[reg_id] = str(gl.message.sender_account)
         self.registry_deadline[reg_id] = deadline_timestamp
-        self.registry_created_at[reg_id] = u256(int(gl.block.timestamp))
+        self.registry_created_at[reg_id] = int(gl.block.timestamp)
 
-        self.registry_count = u256(int(self.registry_count) + 1)
+        self.registry_count = self.registry_count + 1
 
         return market_id
 

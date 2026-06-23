@@ -44,7 +44,6 @@ class Contract(gl.Contract):
         dispute_window_hours: u256,
         min_bond_amount: u256,
     ):
-        # KHÔNG gán TreeMap() ở đây
         self.market_contract_address = market_contract_addr
         self.dispute_window_hours = dispute_window_hours
         self.min_bond_amount = min_bond_amount
@@ -94,7 +93,7 @@ class Contract(gl.Contract):
         self.dispute_initiator[market_id] = str(gl.message.sender_account)
         self.dispute_bond[market_id] = gl.message.value
         self.dispute_extra_sources[market_id] = extra_sources_json
-        self.dispute_raised_at[market_id] = u256(int(gl.block.timestamp))
+        self.dispute_raised_at[market_id] = int(gl.block.timestamp)
         self.dispute_resolved[market_id] = False
         self.dispute_original_outcome[market_id] = original_outcome
 

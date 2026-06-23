@@ -49,8 +49,7 @@ class Contract(gl.Contract):
     registry_address: str                        # địa chỉ MarketRegistry (tùy chọn)
 
     def __init__(self, registry_addr: str = ""):
-        # KHÔNG gán TreeMap()/DynArray() ở đây — GenVM tự khởi tạo
-        self.market_count = u256(0)
+        self.market_count = 0
         self.registry_address = registry_addr
 
     # =========================================================
@@ -100,11 +99,11 @@ class Contract(gl.Contract):
         self.markets_resolved[market_id] = False
         self.markets_outcome[market_id] = "UNRESOLVED"
         self.markets_reasoning[market_id] = ""
-        self.markets_resolved_at[market_id] = u256(0)
-        self.yes_pool[market_id] = u256(0)
-        self.no_pool[market_id] = u256(0)
+        self.markets_resolved_at[market_id] = 0
+        self.yes_pool[market_id] = 0
+        self.no_pool[market_id] = 0
 
-        self.market_count = u256(int(self.market_count) + 1)
+        self.market_count = self.market_count + 1
 
         return market_id
 
@@ -261,7 +260,7 @@ Respond ONLY with valid JSON, no other text:
         self.markets_outcome[market_id] = verdict
         self.markets_reasoning[market_id] = reasoning
         self.markets_resolved[market_id] = True
-        self.markets_resolved_at[market_id] = u256(int(gl.block.timestamp))
+        self.markets_resolved_at[market_id] = int(gl.block.timestamp)
 
     # =========================================================
     #  OVERRIDE OUTCOME (chỉ DisputeResolver được gọi)
