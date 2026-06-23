@@ -1,13 +1,15 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 """
-TruthMarket — Market Contract v8
+TruthMarket — Market Contract v10
 
-Bisection-confirmed safe patterns:
-1. TreeMap[str, str] only — no bool/u256 values
-2. Counters via state TreeMap — no u256 scalar fields
-3. gl.message.sender_address — not sender_account
-4. No json.loads/isinstance/strip in write functions — not supported in GenVM
-5. raise Exception("...") — not gl.UserError
+Confirmed-working patterns (bisection + re-verification):
+1. TreeMap[str, str] for all state — stable, proven pattern
+2. str counter via state["market_count"] — u256 scalar also works but str is simpler
+3. gl.message.sender_address — NOT sender_account
+4. json.loads() + isinstance() in write functions — CONFIRMED WORKING on memory objects
+5. raise Exception("...") for errors
+6. gl.block.timestamp NOT available in write context; gl.message has no timestamp field.
+   Deadline enforcement must be done client-side.
 """
 import json
 from genlayer import *
@@ -64,12 +66,17 @@ class Contract(gl.Contract):
         sources_json: str,
         deadline_timestamp: u256,
     ) -> u256:
-        # Simple validation — no json.loads/isinstance (not GenVM-safe)
-        
+        # Validate sources — json.loads/isinstance confirmed working on memory objects
+        try:
+            sources = json.loads(sources_json)
+        except Exception:
+            raise Exception("INVALID_SOURCES_JSON")
+        if not isinstance(sources, list) or len(sources) < 2:
+            raise Exception("NEED_AT_LEAST_2_SOURCES")
         if len(question) < 10:
             raise Exception("QUESTION_TOO_SHORT")
-        if len(sources_json) < 10:
-            raise Exception("SOURCES_REQUIRED")
+        # NOTE: gl.block.timestamp is NOT available in write functions on GenLayer studionet.
+        # gl.message has no timestamp field. Deadline enforcement is done client-side.
 
         mid = str(self._count())
         self.markets_question[mid]    = question
