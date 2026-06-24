@@ -4,18 +4,17 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMarket, useUserStake, useDispute, useResolveMarket, usePlaceStake, useClaimPayout, useRaiseDispute } from '@/hooks/useContracts';
 import { formatGLT, formatDeadline, isDeadlinePassed, shortAddress } from '@/lib/genlayer';
+import { useWallet } from '@/context/WalletContext';
 import Navbar from '@/components/Navbar';
-
-// Demo account — in production this would come from wallet connect
-const DEMO_ACCOUNT = '0x0000000000000000000000000000000000000001' as `0x${string}`;
 
 export default function MarketDetailPage() {
   const params = useParams();
   const router = useRouter();
   const marketId = parseInt(params.id as string);
+  const { address: myAddress } = useWallet();
 
   const { market, loading, error, refetch } = useMarket(marketId);
-  const { stake, refetch: refetchStake } = useUserStake(marketId, DEMO_ACCOUNT);
+  const { stake, refetch: refetchStake } = useUserStake(marketId, myAddress ?? '');
   const { dispute } = useDispute(marketId);
 
   const { resolveMarket, loading: resolving } = useResolveMarket();
@@ -39,9 +38,8 @@ export default function MarketDetailPage() {
   // ── Handle: Place Stake ──
   const handleStake = async () => {
     if (selectedSide === null || !stakeAmount) return;
-    const amount = BigInt(Math.floor(parseFloat(stakeAmount) * 1_000_000));
-
-    const result = await placeStake({ marketId, side: selectedSide, amount, account: DEMO_ACCOUNT });
+    // Fix #5: pass GEN string, parseEther happens inside hook
+    const result = await placeStake({ marketId, side: selectedSide, amountGEN: stakeAmount });
 
     if (result.success) {
       showToast('success', 'Stake placed!', `Tx: ${shortAddress(result.hash ?? '')}`);
@@ -56,7 +54,7 @@ export default function MarketDetailPage() {
   // ── Handle: Resolve ──
   const handleResolve = async () => {
     showToast('info', 'AI is analyzing...', 'This process may take 30–120 seconds. Please wait.');
-    const result = await resolveMarket({ marketId, account: DEMO_ACCOUNT });
+    const result = await resolveMarket(marketId);
 
     if (result.success) {
       showToast('success', 'Verdict reached!', 'The AI has read the internet and delivered a result.');
@@ -68,7 +66,7 @@ export default function MarketDetailPage() {
 
   // ── Handle: Claim ──
   const handleClaim = async () => {
-    const result = await claimPayout({ marketId, account: DEMO_ACCOUNT });
+    const result = await claimPayout(marketId);
 
     if (result.success) {
       showToast('success', 'Payout claimed!', `Tx: ${shortAddress(result.hash ?? '')}`);
@@ -87,12 +85,12 @@ export default function MarketDetailPage() {
       return;
     }
 
+    // Fix #5: bond = 0.0001 GEN (18 decimals)
     const result = await raiseDispute({
       marketId,
       extraSources: sources,
       originalOutcome: market?.outcome ?? 'NO',
-      bondAmount: BigInt(100_000),
-      account: DEMO_ACCOUNT,
+      bondAmountGEN: '0.0001',
     });
 
     if (result.success) {

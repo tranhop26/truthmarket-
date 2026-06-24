@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useCreateMarket } from '@/hooks/useContracts';
 
-const DEMO_ACCOUNT = '0x0000000000000000000000000000000000000001' as `0x${string}`;
-
 // Sample market questions to help users get started
 const EXAMPLE_MARKETS = [
   {
@@ -80,7 +78,6 @@ export default function CreateMarketModal({ onClose, onSuccess }: Props) {
       question: question.trim(),
       sources,
       deadlineTimestamp: deadlineTs,
-      account: DEMO_ACCOUNT,
     });
 
     if (result.success) {

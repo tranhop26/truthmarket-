@@ -48,8 +48,10 @@ class Contract(gl.Contract):
         self.user_no_stake       = TreeMap()
         self.claimed             = TreeMap()
         self.state               = TreeMap()
-        self.state["market_count"]     = "0"
-        self.state["registry_address"] = registry_addr
+        self.state["market_count"]            = "0"
+        self.state["registry_address"]        = registry_addr
+        self.state["owner"]                   = str(gl.message.sender_address)
+        self.state["dispute_resolver_address"] = ""  # set after DisputeResolver deploy
 
     def _count(self) -> int:
         return int(self.state.get("market_count", "0"))
@@ -175,15 +177,29 @@ Respond ONLY with valid JSON:
         self.markets_resolved[mid]    = "true"
         self.markets_resolved_at[mid] = "0"
 
+    # ── SET DISPUTE RESOLVER (owner only) ─────────────────────────────────
+
+    @gl.public.write
+    def set_dispute_resolver(self, addr: str) -> None:
+        if str(gl.message.sender_address) != self.state.get("owner", ""):
+            raise Exception("ONLY_OWNER")
+        self.state["dispute_resolver_address"] = addr
+
     # ── OVERRIDE ───────────────────────────────────────────────────────────
 
     @gl.public.write
     def override_outcome(
         self, market_id: u256, new_outcome: str, new_reasoning: str, dispute_resolver: str
     ) -> None:
+        # SECURITY: only the registered DisputeResolver contract may call this
+        authorized = self.state.get("dispute_resolver_address", "")
+        if not authorized or str(gl.message.sender_address) != authorized:
+            raise Exception("ONLY_DISPUTE_RESOLVER")
         mid = str(int(market_id))
         if new_outcome not in ("YES", "NO"):
             raise Exception("INVALID_OUTCOME")
+        if self.markets_resolved.get(mid, "false") != "true":
+            raise Exception("MARKET_NOT_RESOLVED_YET")
         self.markets_outcome[mid]   = new_outcome
         self.markets_reasoning[mid] = f"[APPEAL OVERRIDE] {new_reasoning}"
 

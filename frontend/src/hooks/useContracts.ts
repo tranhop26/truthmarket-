@@ -1,15 +1,15 @@
 /**
  * TruthMarket — Contract hooks
  *
- * React hooks for reading and writing state to the 3 GenLayer contracts.
- * All calls are REAL — no mocks or hardcoded data.
- * API follows genlayer-js v1.x: readContract / writeContract
+ * Reads use glClient (read-only, no account).
+ * Writes use walletClient from WalletContext (MetaMask signer).
  */
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { glClient, CONTRACT_ADDRESSES } from '@/lib/genlayer';
+import { useWallet } from '@/context/WalletContext';
+import { parseEther } from 'viem';
 
 // ──────────────────────────────────────────────────────────
 //  Types
@@ -59,12 +59,41 @@ export interface Dispute {
 }
 
 // ──────────────────────────────────────────────────────────
+//  Write helper — enforces wallet connection
+// ──────────────────────────────────────────────────────────
+
+function useWriteHook() {
+  const { client: walletClient, address } = useWallet();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function execute(fn: () => Promise<unknown>) {
+    if (!walletClient || !address) {
+      const msg = 'Wallet not connected. Click "🦊 Connect" in the top-right corner.';
+      setError(msg);
+      return { success: false, error: msg };
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const hash = await fn();
+      return { success: true, hash: hash as string };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      return { success: false, error: msg };
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { loading, error, execute, walletClient };
+}
+
+// ──────────────────────────────────────────────────────────
 //  Read Hooks
 // ──────────────────────────────────────────────────────────
 
-/**
- * Hook: read the list of all markets from the contract (live)
- */
 export function useAllMarkets() {
   const [markets, setMarkets] = useState<MarketSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,26 +101,22 @@ export function useAllMarkets() {
 
   const refetch = useCallback(async () => {
     if (!CONTRACT_ADDRESSES.market) {
-      setError('NEXT_PUBLIC_MARKET_CONTRACT_ADDRESS is not configured in .env.local');
+      setError('NEXT_PUBLIC_MARKET_CONTRACT_ADDRESS is not configured');
       setLoading(false);
       return;
     }
-
     try {
       setLoading(true);
       setError(null);
-
       const result = await glClient.readContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'get_all_markets_summary',
         args: [],
       });
-
       const parsed: MarketSummary[] = JSON.parse(result as string);
-      setMarkets(parsed.reverse()); // newest first
+      setMarkets(parsed.reverse());
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`Error reading markets: ${msg}`);
+      setError(`Error reading markets: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -106,35 +131,24 @@ export function useAllMarkets() {
   return { markets, loading, error, refetch };
 }
 
-/**
- * Hook: read details of a single market by market_id (live)
- */
 export function useMarket(marketId: number) {
   const [market, setMarket] = useState<Market | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
-    if (!CONTRACT_ADDRESSES.market) {
-      setError('Contract address not configured');
-      setLoading(false);
-      return;
-    }
-
+    if (!CONTRACT_ADDRESSES.market) { setError('Contract address not configured'); setLoading(false); return; }
     try {
       setLoading(true);
       setError(null);
-
       const result = await glClient.readContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'get_market',
         args: [BigInt(marketId)],
       });
-
       setMarket(JSON.parse(result as string));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(`Error reading market: ${msg}`);
+      setError(`Error reading market: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -149,16 +163,12 @@ export function useMarket(marketId: number) {
   return { market, loading, error, refetch };
 }
 
-/**
- * Hook: read a user's stake in a market (live)
- */
 export function useUserStake(marketId: number, userAddress: string) {
   const [stake, setStake] = useState<UserStake | null>(null);
   const [loading, setLoading] = useState(false);
 
   const refetch = useCallback(async () => {
     if (!CONTRACT_ADDRESSES.market || !userAddress) return;
-
     try {
       setLoading(true);
       const result = await glClient.readContract({
@@ -167,246 +177,148 @@ export function useUserStake(marketId: number, userAddress: string) {
         args: [BigInt(marketId), userAddress],
       });
       setStake(JSON.parse(result as string));
-    } catch {
-      setStake(null);
-    } finally {
-      setLoading(false);
-    }
+    } catch { setStake(null); }
+    finally { setLoading(false); }
   }, [marketId, userAddress]);
 
+  // Fix: poll every 15s so stake stays fresh
   useEffect(() => {
     refetch();
+    const t = setInterval(refetch, 15_000);
+    return () => clearInterval(t);
   }, [refetch]);
 
   return { stake, loading, refetch };
 }
 
-/**
- * Hook: read dispute information for a market (live)
- */
 export function useDispute(marketId: number) {
   const [dispute, setDispute] = useState<Dispute | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const refetch = useCallback(async () => {
     if (!CONTRACT_ADDRESSES.disputeResolver) return;
-
-    const fetchDispute = async () => {
-      try {
-        setLoading(true);
-        const result = await glClient.readContract({
-          address: CONTRACT_ADDRESSES.disputeResolver,
-          functionName: 'get_dispute',
-          args: [BigInt(marketId)],
-        });
-        setDispute(JSON.parse(result as string));
-      } catch {
-        setDispute(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDispute();
+    try {
+      setLoading(true);
+      const result = await glClient.readContract({
+        address: CONTRACT_ADDRESSES.disputeResolver,
+        functionName: 'get_dispute',
+        args: [BigInt(marketId)],
+      });
+      setDispute(JSON.parse(result as string));
+    } catch { setDispute(null); }
+    finally { setLoading(false); }
   }, [marketId]);
 
-  return { dispute, loading };
+  // Fix: expose refetch + poll every 30s
+  useEffect(() => {
+    refetch();
+    const t = setInterval(refetch, 30_000);
+    return () => clearInterval(t);
+  }, [refetch]);
+
+  return { dispute, loading, refetch };
 }
 
 // ──────────────────────────────────────────────────────────
-//  Write Hooks — using real glClient.writeContract calls
+//  Write Hooks — use walletClient (MetaMask)
 // ──────────────────────────────────────────────────────────
 
-/**
- * Hook: create a new market (real contract call)
- */
 export function useCreateMarket() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { loading, error, execute, walletClient } = useWriteHook();
 
   const createMarket = useCallback(async (params: {
     question: string;
     sources: string[];
     deadlineTimestamp: number;
-    account: `0x${string}`;
   }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // writeContract genlayer-js v1.x: value is required (even if 0n)
-      const hash = await glClient.writeContract({
+    return execute(() =>
+      walletClient!.writeContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'create_market',
-        args: [
-          params.question,
-          JSON.stringify(params.sources),
-          BigInt(params.deadlineTimestamp),
-        ],
+        args: [params.question, JSON.stringify(params.sources), BigInt(params.deadlineTimestamp)],
         value: 0n,
-      });
-
-      return { success: true, hash: hash as string };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      })
+    );
+  }, [execute, walletClient]);
 
   return { createMarket, loading, error };
 }
 
-/**
- * Hook: place a stake (real contract call, payable)
- */
 export function usePlaceStake() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { loading, error, execute, walletClient } = useWriteHook();
 
   const placeStake = useCallback(async (params: {
     marketId: number;
     side: boolean;
-    amount: bigint;
-    account: `0x${string}`;
+    amountGEN: string; // Fix #5: accept GEN string, convert with parseEther
   }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const hash = await glClient.writeContract({
+    return execute(() =>
+      walletClient!.writeContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'place_stake',
         args: [BigInt(params.marketId), params.side],
-        value: params.amount,
-      });
-
-      return { success: true, hash: hash as string };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        value: parseEther(params.amountGEN), // 18 decimals
+      })
+    );
+  }, [execute, walletClient]);
 
   return { placeStake, loading, error };
 }
 
-/**
- * Hook: resolve a market — triggers AI resolution
- * NOTE: this can take 30–120s (AI reads web + LLM + consensus)
- */
 export function useResolveMarket() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { loading, error, execute, walletClient } = useWriteHook();
 
-  const resolveMarket = useCallback(async (params: {
-    marketId: number;
-    account: `0x${string}`;
-  }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const hash = await glClient.writeContract({
+  const resolveMarket = useCallback(async (marketId: number) => {
+    return execute(() =>
+      walletClient!.writeContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'resolve_market',
-        args: [BigInt(params.marketId)],
+        args: [BigInt(marketId)],
         value: 0n,
-        // Increase timeout because AI resolution takes time
         consensusMaxRotations: 5,
-      });
-
-      return { success: true, hash: hash as string };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      })
+    );
+  }, [execute, walletClient]);
 
   return { resolveMarket, loading, error };
 }
 
-/**
- * Hook: claim payout (real contract call)
- */
 export function useClaimPayout() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { loading, error, execute, walletClient } = useWriteHook();
 
-  const claimPayout = useCallback(async (params: {
-    marketId: number;
-    account: `0x${string}`;
-  }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const hash = await glClient.writeContract({
+  const claimPayout = useCallback(async (marketId: number) => {
+    return execute(() =>
+      walletClient!.writeContract({
         address: CONTRACT_ADDRESSES.market,
         functionName: 'claim_payout',
-        args: [BigInt(params.marketId)],
+        args: [BigInt(marketId)],
         value: 0n,
-      });
-
-      return { success: true, hash: hash as string };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      })
+    );
+  }, [execute, walletClient]);
 
   return { claimPayout, loading, error };
 }
 
-/**
- * Hook: raise a dispute (real contract call, payable bond)
- */
 export function useRaiseDispute() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { loading, error, execute, walletClient } = useWriteHook();
 
+  // Fix #5: bondAmountGEN string → parseEther (18 decimals)
   const raiseDispute = useCallback(async (params: {
     marketId: number;
     extraSources: string[];
     originalOutcome: string;
-    bondAmount: bigint;
-    account: `0x${string}`;
+    bondAmountGEN: string;
   }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const hash = await glClient.writeContract({
+    return execute(() =>
+      walletClient!.writeContract({
         address: CONTRACT_ADDRESSES.disputeResolver,
         functionName: 'raise_dispute',
-        args: [
-          BigInt(params.marketId),
-          params.originalOutcome,               // market_id, original_outcome, extra_sources_json
-          JSON.stringify(params.extraSources),
-        ],
-        value: params.bondAmount,
-      });
-
-      return { success: true, hash: hash as string };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        args: [BigInt(params.marketId), params.originalOutcome, JSON.stringify(params.extraSources)],
+        value: parseEther(params.bondAmountGEN),
+      })
+    );
+  }, [execute, walletClient]);
 
   return { raiseDispute, loading, error };
 }
